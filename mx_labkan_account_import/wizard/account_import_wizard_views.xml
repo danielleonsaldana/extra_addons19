@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ═══════════════════════════════════════════════════
+             ALTA MASIVA DE CUENTAS CONTABLES
+        ═══════════════════════════════════════════════════ -->
+        <record id="view_mx_account_import_wizard_form" model="ir.ui.view">
+            <field name="name">mx.account.import.wizard.form</field>
+            <field name="model">mx.account.import.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Alta Masiva de Cuentas Contables">
+
+                    <!-- Encabezado con resultado -->
+                    <div class="alert alert-success mb-0" role="alert"
+                         invisible="state != 'done'">
+                        <strong>✅ Importación completada</strong>
+                        <field name="result_message" readonly="1" nolabel="1"/>
+                    </div>
+                    <div class="alert alert-warning mb-0" role="alert"
+                         invisible="state != 'error'">
+                        <strong>⚠️ Importación con errores</strong>
+                        <field name="result_message" readonly="1" nolabel="1"/>
+                    </div>
+
+                    <group invisible="state not in ('done', 'error')">
+                        <group string="Detalle de errores" invisible="error_log == 'Sin errores.'">
+                            <field name="error_log" nolabel="1" readonly="1"
+                                   widget="text" style="color: #c0392b; font-family: monospace; font-size: 11px;"/>
+                        </group>
+                    </group>
+
+                    <!-- Formulario de configuración -->
+                    <group invisible="state != 'draft'">
+                        <group string="Archivo">
+                            <field name="import_file" widget="binary" filename="import_filename" required="1"/>
+                            <field name="import_filename" invisible="1"/>
+                            <field name="file_type" required="1"/>
+                        </group>
+                        <group string="Configuración">
+                            <field name="company_id" options="{'no_create': True}"/>
+                            <field name="sheet_name" invisible="file_type != 'excel'"/>
+                            <field name="header_row"/>
+                            <field name="update_existing" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+
+                    <!-- Info columnas esperadas -->
+                    <div class="alert alert-info" role="alert" invisible="state != 'draft'">
+                        <strong>Columnas esperadas en el archivo:</strong><br/>
+                        <code>Código* | Nombre* | Tipo de cuenta* | Reconciliable | Moneda | Etiquetas | Notas | Activo</code><br/>
+                        <small>Las columnas marcadas con * son obligatorias. Descarga la plantilla para ver el formato exacto.</small>
+                    </div>
+
+                    <footer>
+                        <!-- Estado draft: botones de acción -->
+                        <div invisible="state != 'draft'">
+                            <button name="action_import" type="object"
+                                    string="📥 Importar cuentas"
+                                    class="btn-primary"
+                                    data-hotkey="q"/>
+                            <button name="action_download_template" type="object"
+                                    string="📄 Descargar plantilla"
+                                    class="btn-secondary"/>
+                            <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                        </div>
+                        <!-- Estado done/error: solo cerrar o volver a importar -->
+                        <div invisible="state == 'draft'">
+                            <button string="Cerrar" class="btn-primary" special="cancel"/>
+                        </div>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Action -->
+        <record id="action_mx_account_import_wizard" model="ir.actions.act_window">
+            <field name="name">Alta Masiva de Cuentas Contables</field>
+            <field name="res_model">mx.account.import.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="account.model_account_account"/>
+            <field name="binding_view_types">list</field>
+        </record>
+
+    </data>
+</odoo>

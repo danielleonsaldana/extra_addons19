@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mx_account_import_wizard_manager,mx.account.import.wizard.manager,model_mx_account_import_wizard,account.group_account_manager,1,1,1,1
+access_mx_account_import_wizard_user,mx.account.import.wizard.user,model_mx_account_import_wizard,account.group_account_user,1,0,0,0
+access_mx_bank_export_wizard_manager,mx.bank.account.export.wizard.manager,model_mx_bank_account_export_wizard,account.group_account_manager,1,1,1,1
+access_mx_bank_export_wizard_user,mx.bank.account.export.wizard.user,model_mx_bank_account_export_wizard,account.group_account_user,1,1,1,0

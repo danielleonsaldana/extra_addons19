@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ═══════════════════════════════════════
+             MENÚ: Contabilidad > Configuración
+             Agregar entradas para las dos herramientas
+        ═══════════════════════════════════════════ -->
+
+        <!-- Alta masiva de cuentas contables -->
+        <menuitem
+            id="menu_mx_account_import"
+            name="Alta Masiva de Cuentas Contables"
+            action="action_mx_account_import_wizard"
+            parent="account.menu_finance_configuration"
+            sequence="100"
+            groups="account.group_account_manager"
+        />
+
+        <!-- Descarga TXT cuentas bancarias -->
+        <menuitem
+            id="menu_mx_bank_account_export"
+            name="Descarga Masiva TXT (Bancos)"
+            action="action_mx_bank_account_export_wizard"
+            parent="account.menu_finance_configuration"
+            sequence="101"
+            groups="account.group_account_manager"
+        />
+
+    </data>
+</odoo>
