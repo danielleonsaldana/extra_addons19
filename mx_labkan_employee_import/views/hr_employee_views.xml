@@ -110,7 +110,7 @@
     <record id="view_hr_employee_list_teva" model="ir.ui.view">
         <field name="name">hr.employee.list.teva</field>
         <field name="model">hr.employee</field>
-        <field name="inherit_id" ref="hr.view_employee_list"/>
+        <field name="inherit_id" ref="hr.view_employee_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//list" position="inside">
                 <field name="mx_rfc" string="RFC" optional="show"/>
