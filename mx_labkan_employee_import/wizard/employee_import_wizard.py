@@ -454,7 +454,7 @@ class EmployeeImportWizard(models.TransientModel):
                 'city': municipio or False,
                 'country_id': country_mx.id if country_mx else False,
                 'email': _val(row, 'correo') or False,
-                'type': 'private',
+                'type': 'contact',
             }
             # Buscar estado de México por nombre/clave
             if estado:
