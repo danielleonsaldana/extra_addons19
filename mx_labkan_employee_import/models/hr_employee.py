@@ -17,7 +17,6 @@ RFC_PATTERN_PERSONA_MORAL = re.compile(
     r'^[A-ZÑ&]{3}\d{6}[A-Z0-9]{3}$', re.IGNORECASE
 )
 
-# Palabras inconvenientes SAT (lista parcial)
 RFC_PALABRAS_INCONVENIENTES = [
     'BACA','BAKA','BUEI','BUEY','CACA','CACO','CAGA','CAGO','CAKA','CAKO',
     'COGE','COGI','COJA','COJE','COJI','COJO','COLA','CULO','FALO','FETO',
@@ -35,6 +34,20 @@ class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
     # ──────────────────────────────────────────────────────────────────────────
+    # RFC / CURP propios (Odoo 19 quitó vat de hr.employee)
+    # ──────────────────────────────────────────────────────────────────────────
+    mx_rfc = fields.Char(
+        string='RFC',
+        size=13,
+        help='Registro Federal de Contribuyentes del empleado.',
+    )
+    mx_curp = fields.Char(
+        string='CURP',
+        size=18,
+        help='Clave Única de Registro de Población.',
+    )
+
+    # ──────────────────────────────────────────────────────────────────────────
     # Campos TEVA adicionales
     # ──────────────────────────────────────────────────────────────────────────
     teva_cliente = fields.Char(string='Cliente TEVA')
@@ -44,7 +57,7 @@ class HrEmployee(models.Model):
     teva_rp = fields.Char(string='RP')
     teva_contrato = fields.Char(string='Contrato')
 
-    # Datos NSS
+    # NSS
     nss = fields.Char(string='NSS (IMSS)', size=11)
 
     # Datos bancarios
@@ -69,17 +82,16 @@ class HrEmployee(models.Model):
     teva_descripcion_puesto = fields.Char(string='Descripción de Puesto (TEVA)')
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Salario (TEVA viene como mensual y quincenal; SD = Salario Diario)
+    # Salario informativo
     # ──────────────────────────────────────────────────────────────────────────
     salary_monthly = fields.Float(string='Sueldo Mensual', digits=(16, 2))
     salary_biweekly = fields.Float(string='Sueldo Quincenal', digits=(16, 2))
     salary_daily = fields.Float(string='Salario Diario (SD)', digits=(16, 2))
 
-    # Partes IMSS / Exento (dato informativo)
     salary_imss = fields.Float(
         string='Parte IMSS (integrado)',
         digits=(16, 2),
-        help='Porción del salario sujeta a cuota IMSS (dato informativo, ingrese manualmente o configure desde nómina).',
+        help='Porción del salario sujeta a cuota IMSS (dato informativo).',
     )
     salary_exempt = fields.Float(
         string='Parte Exenta',
@@ -91,11 +103,11 @@ class HrEmployee(models.Model):
         compute='_compute_salary_total_info',
         store=True,
         digits=(16, 2),
-        help='Campo informativo: suma de la parte IMSS y la parte exenta del salario.',
+        help='Campo informativo: suma de la parte IMSS y la parte exenta.',
     )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # RFC / CURP / Validación SAT
+    # RFC validación
     # ──────────────────────────────────────────────────────────────────────────
     rfc_validated_format = fields.Boolean(
         string='RFC Formato Válido',
@@ -115,7 +127,7 @@ class HrEmployee(models.Model):
     )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Multi-empresa: relación con el mismo empleado en otra empresa
+    # Multi-empresa
     # ──────────────────────────────────────────────────────────────────────────
     related_employee_ids = fields.Many2many(
         'hr.employee',
@@ -146,29 +158,14 @@ class HrEmployee(models.Model):
             emp.is_multicompany_employee = bool(emp.related_employee_ids)
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Validación RFC local (formato SAT)
+    # Validación RFC local
     # ──────────────────────────────────────────────────────────────────────────
-    @api.constrains('vat')
-    def _check_rfc_format(self):
-        for emp in self:
-            if emp.vat:
-                self._validate_rfc_format(emp.vat)
-
     @api.model
     def _validate_rfc_format(self, rfc):
-        """
-        Valida el formato del RFC según las reglas del SAT:
-        - Persona Física:  4 letras + 6 dígitos + 3 homoclave  (13 chars)
-        - Persona Moral:   3 letras + 6 dígitos + 3 homoclave  (12 chars)
-        - Fecha YYMMDD válida
-        - Palabras inconvenientes sustituidas por el SAT
-        Retorna (True, '') o (False, 'motivo')
-        """
         rfc = (rfc or '').strip().upper()
         if not rfc:
             return False, 'RFC vacío'
 
-        # Longitud y patrón
         if len(rfc) == 13:
             if not RFC_PATTERN_PERSONA_FISICA.match(rfc):
                 return False, 'Formato de persona física inválido (LLLL999999XXX)'
@@ -182,22 +179,19 @@ class HrEmployee(models.Model):
         else:
             return False, f'Longitud incorrecta ({len(rfc)} chars, debe ser 12 o 13)'
 
-        # Validar fecha YYMMDD
         try:
             datetime.strptime(fecha_part, '%y%m%d')
         except ValueError:
             return False, f'Fecha inválida en RFC: {fecha_part}'
 
-        # Palabras inconvenientes (solo persona física, primeras 4 letras)
         if len(rfc) == 13 and nombre_part in RFC_PALABRAS_INCONVENIENTES:
             return False, f'RFC contiene palabra inconveniente: {nombre_part}'
 
         return True, ''
 
     def action_validate_rfc_format(self):
-        """Botón: valida el formato del RFC y actualiza el campo."""
         for emp in self:
-            rfc = emp.vat or ''
+            rfc = emp.mx_rfc or ''
             ok, msg = self._validate_rfc_format(rfc)
             emp.rfc_validated_format = ok
             if not ok:
@@ -223,85 +217,44 @@ class HrEmployee(models.Model):
         }
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Validación RFC en SAT (Lista de Contribuyentes Obligados - LCO)
-    # El SAT publica el padrón en:
-    #   https://contribuyentes.sat.gob.mx/pubpago/padron/download
-    # También existe el webservice del SIAT (requiere FIEL/e.firma).
-    # Para consulta pública sin FIEL usamos el endpoint de verificación
-    # de emisores disponible en el portal de factura electrónica SAT.
+    # Verificación SAT
     # ──────────────────────────────────────────────────────────────────────────
     def action_verify_rfc_sat(self):
-        """
-        Consulta el SAT para verificar si el RFC está activo.
-
-        Endpoint público SAT (sin autenticación):
-        POST https://apissat.sat.gob.mx/contribuyentes/v1/estatus
-        Body: {"rfc": "XXXX000000XXX"}
-
-        NOTA: Este endpoint es el disponible públicamente a la fecha de 
-        desarrollo. Si el SAT lo modifica, actualizar la URL aquí.
-        Si se requiere validación con FIEL empresarial, usar el método
-        _verify_rfc_siat_fiel() (requiere certificado configurado).
-        """
         import requests
-        import json
 
         for emp in self:
-            rfc = (emp.vat or '').strip().upper()
+            rfc = (emp.mx_rfc or '').strip().upper()
             if not rfc:
                 raise ValidationError(_('El empleado no tiene RFC registrado.'))
 
-            # Primero validar formato local
             ok, msg = self._validate_rfc_format(rfc)
             if not ok:
                 emp.rfc_sat_status = 'error'
                 raise ValidationError(_(f'RFC con formato inválido: {msg}'))
 
-            # ── Intento 1: API pública SAT ──────────────────────────────────
             sat_url = 'https://apissat.sat.gob.mx/contribuyentes/v1/estatus'
-            headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            }
-            payload = {'rfc': rfc}
+            headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
             try:
-                resp = requests.post(
-                    sat_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=10,
-                )
+                resp = requests.post(sat_url, json={'rfc': rfc}, headers=headers, timeout=10)
                 _logger.info('SAT RFC check [%s]: status=%s body=%s', rfc, resp.status_code, resp.text[:200])
 
                 if resp.status_code == 200:
                     data = resp.json()
-                    # La respuesta del SAT incluye campo "estatus" o "activo"
                     estatus = data.get('estatus', data.get('activo', '')).lower()
-                    if estatus in ('activo', 'true', '1', 'localizado'):
-                        emp.rfc_sat_status = 'active'
-                    else:
-                        emp.rfc_sat_status = 'not_found'
+                    emp.rfc_sat_status = 'active' if estatus in ('activo', 'true', '1', 'localizado') else 'not_found'
                 elif resp.status_code == 404:
                     emp.rfc_sat_status = 'not_found'
                 else:
-                    _logger.warning('SAT respondió %s para RFC %s', resp.status_code, rfc)
                     emp.rfc_sat_status = 'error'
 
-            except requests.exceptions.Timeout:
-                _logger.error('Timeout al consultar SAT para RFC %s', rfc)
-                emp.rfc_sat_status = 'error'
-            except requests.exceptions.ConnectionError as e:
-                _logger.error('Error de conexión SAT: %s', e)
-                emp.rfc_sat_status = 'error'
             except Exception as e:
-                _logger.error('Error inesperado consultando SAT: %s', e)
+                _logger.error('Error consultando SAT: %s', e)
                 emp.rfc_sat_status = 'error'
 
             emp.rfc_sat_checked_date = fields.Datetime.now()
-            emp.rfc_validated_format = True  # si llegó aquí, el formato fue válido
+            emp.rfc_validated_format = True
 
-        # Notificación
         msg_map = {
             'active': (_('RFC Activo en SAT'), 'success'),
             'not_found': (_('RFC no encontrado en el padrón SAT'), 'warning'),
@@ -322,24 +275,17 @@ class HrEmployee(models.Model):
         }
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Helper: vincular empleados multiempresa por RFC
+    # Helper multiempresa
     # ──────────────────────────────────────────────────────────────────────────
     @api.model
     def _link_multicompany_by_rfc(self, rfc):
-        """
-        Busca en TODAS las empresas empleados con el mismo RFC y los vincula
-        mutuamente en related_employee_ids.
-        """
         if not rfc:
             return
-        employees = self.sudo().search([('vat', '=', rfc)])
+        employees = self.sudo().search([('mx_rfc', '=', rfc)])
         if len(employees) > 1:
             for emp in employees:
                 others = employees - emp
                 emp.sudo().write({
                     'related_employee_ids': [(4, o.id) for o in others]
                 })
-            _logger.info(
-                'Vinculados %d registros multiempresa para RFC %s',
-                len(employees), rfc
-            )
+            _logger.info('Vinculados %d registros multiempresa para RFC %s', len(employees), rfc)

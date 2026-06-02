@@ -250,7 +250,7 @@ class EmployeeImportWizard(models.TransientModel):
 
             # ── Buscar empleado existente ─────────────────────────────────────
             domain_dup = [
-                ('vat', '=', rfc),
+                ('mx_rfc', '=', rfc),
                 ('company_id', '=', self.company_id.id),
             ]
             existing = self.env['hr.employee'].sudo().search(domain_dup, limit=1) if rfc else None
@@ -384,8 +384,8 @@ class EmployeeImportWizard(models.TransientModel):
             'name': full_name,
             'company_id': self.company_id.id,
             # Datos fiscales
-            'vat': rfc or False,
-            'curp': curp or False,
+            'mx_rfc': rfc or False,
+            'mx_curp': curp or False,
             'rfc_validated_format': rfc_format_ok,
             # Datos personales
             'birthday': _date_val(row, 'fecha_nac') or False,
