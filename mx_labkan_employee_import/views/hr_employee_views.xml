@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Herencia del formulario de empleado
+    ══════════════════════════════════════════════════════════════════════════ -->
+    <record id="view_hr_employee_form_teva" model="ir.ui.view">
+        <field name="name">hr.employee.form.teva</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+
+            <!-- ── Pestaña nueva: Datos TEVA / Fiscal ───────────────────── -->
+            <xpath expr="//notebook" position="inside">
+
+                <!-- ─── TEVA ──────────────────────────────────────────────── -->
+                <page string="Datos TEVA" name="teva_data">
+                    <group col="4">
+                        <group string="Identificación TEVA">
+                            <field name="teva_cliente"/>
+                            <field name="teva_sucursal"/>
+                            <field name="teva_estatus"/>
+                            <field name="teva_esquema"/>
+                            <field name="teva_rp"/>
+                            <field name="teva_contrato"/>
+                        </group>
+                        <group string="Puesto TEVA">
+                            <field name="teva_puesto"/>
+                            <field name="teva_descripcion_puesto"/>
+                            <field name="fecha_antiguedad"/>
+                            <field name="fecha_baja"/>
+                        </group>
+                        <group string="IMSS / Seguridad Social">
+                            <field name="nss"/>
+                            <field name="infonavit_credit"/>
+                            <field name="infonavit_factor"/>
+                            <field name="infonavit_pct" widget="percentage"/>
+                            <field name="infonavit_pesos"/>
+                            <field name="fonacot_retention"/>
+                        </group>
+                        <group string="Datos Bancarios">
+                            <field name="bank_name"/>
+                            <field name="bank_account_number"/>
+                            <field name="bank_card_number"/>
+                            <field name="bank_clabe"/>
+                        </group>
+                    </group>
+                </page>
+
+                <!-- ─── Salario Informativo ───────────────────────────────── -->
+                <page string="Salario (Informativo)" name="salary_info">
+                    <group>
+                        <group string="Desglose salarial">
+                            <field name="salary_monthly"/>
+                            <field name="salary_biweekly"/>
+                            <field name="salary_daily"/>
+                        </group>
+                        <group string="Composición IMSS / Exento">
+                            <field name="salary_imss"
+                                   decoration-info="True"
+                                   help="Porción del salario sujeta a integración IMSS."/>
+                            <field name="salary_exempt"
+                                   decoration-success="True"
+                                   help="Porción exenta (vales, fondo ahorro, etc.)."/>
+                            <field name="salary_total_info"
+                                   decoration-bf="True"
+                                   attrs="{'readonly': True}"
+                                   help="Suma informativa: IMSS + Exento."/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert" style="margin-top:8px;">
+                        <i class="fa fa-info-circle"/> Este tab es <b>solo informativo</b>.
+                        El salario real para cálculo de nómina se configura desde el contrato del empleado.
+                        Use estos campos para registrar la composición del salario TEVA.
+                    </div>
+                </page>
+
+                <!-- ─── RFC / SAT ─────────────────────────────────────────── -->
+                <page string="RFC / SAT" name="rfc_sat">
+                    <group>
+                        <group string="Datos Fiscales">
+                            <field name="vat" string="RFC"/>
+                            <field name="curp" string="CURP"/>
+                            <field name="nss" string="NSS (IMSS)"/>
+                        </group>
+                        <group string="Validación">
+                            <field name="rfc_validated_format"
+                                   widget="boolean_toggle"
+                                   attrs="{'readonly': True}"/>
+                            <field name="rfc_sat_status"
+                                   widget="badge"
+                                   decoration-success="rfc_sat_status == 'active'"
+                                   decoration-warning="rfc_sat_status == 'not_found'"
+                                   decoration-danger="rfc_sat_status == 'error'"
+                                   decoration-muted="rfc_sat_status == 'not_checked'"/>
+                            <field name="rfc_sat_checked_date" attrs="{'invisible': [('rfc_sat_status','=','not_checked')]}"/>
+                        </group>
+                    </group>
+                    <div class="o_row" style="margin-top: 12px; gap: 8px; display:flex;">
+                        <button name="action_validate_rfc_format"
+                                string="✓ Validar Formato RFC"
+                                type="object"
+                                class="btn btn-secondary"/>
+                        <button name="action_verify_rfc_sat"
+                                string="🌐 Verificar en SAT (LCO)"
+                                type="object"
+                                class="btn btn-primary"
+                                confirm="Se realizará una consulta al SAT. Asegúrese de tener conexión a internet."/>
+                    </div>
+                    <div class="alert alert-warning mt-2" role="alert">
+                        <i class="fa fa-exclamation-triangle"/>
+                        <b>Nota:</b> La verificación en SAT utiliza la API pública de contribuyentes del SAT México.
+                        Requiere conectividad saliente al dominio <code>apissat.sat.gob.mx</code>.
+                        Para validaciones masivas, use el asistente de importación que procesa el RFC localmente.
+                    </div>
+                </page>
+
+                <!-- ─── Multi-Empresa ─────────────────────────────────────── -->
+                <page string="Multi-Empresa" name="multicompany">
+                    <group>
+                        <field name="is_multicompany_employee"
+                               widget="boolean_toggle"
+                               attrs="{'readonly': True}"
+                               string="¿Empleado en múltiples empresas?"/>
+                    </group>
+                    <field name="related_employee_ids"
+                           widget="many2many_tags"
+                           options="{'color_field': 'color'}"
+                           string="Este mismo empleado en otras empresas:"
+                           help="Vincule aquí el registro del mismo empleado (mismo RFC/CURP) que exista en otras empresas del grupo. Se puede vincular automáticamente desde el asistente de importación."/>
+                    <div class="alert alert-info mt-2" role="alert"
+                         attrs="{'invisible': [('is_multicompany_employee','=',False)]}">
+                        <i class="fa fa-building-o"/>
+                        Este empleado aparece en <b><field name="related_employee_ids" string=""/></b> empresa(s) adicional(es) del grupo.
+                        El RFC debe ser idéntico para que la vinculación funcione.
+                    </div>
+                </page>
+
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         List view: columnas clave con indicadores de estado RFC
+    ══════════════════════════════════════════════════════════════════════════ -->
+    <record id="view_hr_employee_list_teva" model="ir.ui.view">
+        <field name="name">hr.employee.list.teva</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="vat" string="RFC" optional="show"/>
+                <field name="nss" string="NSS" optional="hide"/>
+                <field name="rfc_validated_format" optional="show"
+                       widget="boolean"
+                       string="RFC Formato"/>
+                <field name="rfc_sat_status" optional="show"
+                       widget="badge"
+                       decoration-success="rfc_sat_status == 'active'"
+                       decoration-warning="rfc_sat_status == 'not_found'"
+                       decoration-danger="rfc_sat_status == 'error'"
+                       string="SAT"/>
+                <field name="salary_total_info" optional="show"
+                       string="Salario Total (info)"
+                       widget="monetary"/>
+                <field name="is_multicompany_employee" optional="show"
+                       widget="boolean"
+                       string="Multi-Emp"/>
+                <field name="company_id" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
