@@ -373,8 +373,6 @@ class EmployeeImportWizard(models.TransientModel):
         salary_exempt = round(sueldo_mensual * (1 - pct), 2)
 
         # Género
-        genero_raw = _val(row, 'genero').upper()
-        gender = GENDER_MAP.get(genero_raw, False)
 
         # Estado civil
         civil_raw = _val(row, 'estado_civil').upper()
@@ -389,7 +387,6 @@ class EmployeeImportWizard(models.TransientModel):
             'rfc_validated_format': rfc_format_ok,
             # Datos personales
             'birthday': _date_val(row, 'fecha_nac') or False,
-            'gender': gender,
             'marital': marital,
             'work_email': _val(row, 'correo') or False,
             # TEVA meta
