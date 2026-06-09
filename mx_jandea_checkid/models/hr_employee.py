@@ -178,7 +178,7 @@ class HrEmployee(models.Model):
         for rec in self:
             rec.checkid_log_count = len(rec.checkid_log_ids)
 
-    @api.depends('ssnid', 'private_info')
+    @api.depends('ssnid')
     def _compute_trigger_fields(self):
         """Placeholder — el trigger real es por write/create."""
         for rec in self:
