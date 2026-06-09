@@ -6,113 +6,46 @@
         <field name="priority">100</field>
         <field name="inherit_id" ref="base_setup.action_general_configuration"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[hasclass('settings')]" position="inside">
-                <div class="app_settings_block" data-string="CheckId" string="CheckId"
-                     data-key="mx_jandea_checkid">
-                    <h2>Integración CheckId (Canicalabs)</h2>
-                    <div class="row mt16 o_settings_container">
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane"/>
-                            <div class="o_setting_right_pane">
-                                <span class="o_form_label">API Key</span>
-                                <div class="text-muted">
-                                    Obtenla en
-                                    <a href="https://www.checkid.mx/App/ControlApi" target="_blank">
-                                        checkid.mx/App/ControlApi
-                                    </a>
-                                </div>
-                                <div class="content-group mt8">
-                                    <field name="checkid_api_key"
-                                           password="True"
-                                           placeholder="Ej: abc123xyz..."/>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_auto_query"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_auto_query" class="o_form_label"/>
-                                <div class="text-muted">
-                                    Consultar automáticamente al crear o modificar
-                                    el RFC/CURP del empleado.
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <h3 class="mt16">Datos a obtener</h3>
-                    <div class="row o_settings_container">
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_rfc"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_rfc" class="o_form_label"/>
-                                <div class="text-muted">RFC, Razón Social y vigencia.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_curp"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_curp" class="o_form_label"/>
-                                <div class="text-muted">CURP, nombre, fecha de nacimiento y entidad.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_nss"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_nss" class="o_form_label"/>
-                                <div class="text-muted">Número de Seguridad Social (IMSS).</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_regimen"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_regimen" class="o_form_label"/>
-                                <div class="text-muted">Régimen fiscal registrado ante el SAT.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_cp"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_cp" class="o_form_label"/>
-                                <div class="text-muted">Código Postal fiscal registrado en el SAT.</div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="checkid_obtain_69"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="checkid_obtain_69" class="o_form_label"/>
-                                <div class="text-muted">
-                                    Verificar si el contribuyente aparece en el listado
-                                    69 o 69B del SAT (EFOS/EDOS).
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
+            <xpath expr="//form/footer" position="before">
+                <app string="CheckId" name="mx_jandea_checkid">
+                    <block title="Integración CheckId (Canicalabs)">
+                        <setting string="API Key" help="Obtenla en https://www.checkid.mx/App/ControlApi">
+                            <field name="checkid_api_key"
+                                   password="True"
+                                   placeholder="Ej: abc123xyz..."/>
+                        </setting>
+                        <setting string="Consulta automática"
+                                 help="Consultar CheckId automáticamente al crear o modificar el RFC/CURP del empleado.">
+                            <field name="checkid_auto_query"/>
+                        </setting>
+                    </block>
+                    <block title="Datos a obtener">
+                        <setting string="RFC y Razón Social"
+                                 help="RFC, Razón Social y vigencia ante el SAT.">
+                            <field name="checkid_obtain_rfc"/>
+                        </setting>
+                        <setting string="CURP y datos personales"
+                                 help="CURP, nombre, fecha de nacimiento y entidad de nacimiento.">
+                            <field name="checkid_obtain_curp"/>
+                        </setting>
+                        <setting string="NSS"
+                                 help="Número de Seguridad Social (IMSS).">
+                            <field name="checkid_obtain_nss"/>
+                        </setting>
+                        <setting string="Régimen Fiscal"
+                                 help="Régimen fiscal registrado ante el SAT.">
+                            <field name="checkid_obtain_regimen"/>
+                        </setting>
+                        <setting string="CP Fiscal"
+                                 help="Código Postal fiscal registrado en el SAT.">
+                            <field name="checkid_obtain_cp"/>
+                        </setting>
+                        <setting string="Estado 69/69B (EFOS/EDOS)"
+                                 help="Verificar si el contribuyente aparece en el listado 69 o 69B del SAT.">
+                            <field name="checkid_obtain_69"/>
+                        </setting>
+                    </block>
+                </app>
             </xpath>
         </field>
     </record>
