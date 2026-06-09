@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_employee_view_form_checkid" model="ir.ui.view">
+        <field name="name">hr.employee.view.form.checkid</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Botón inteligente en el header -->
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button type="object"
+                        name="action_checkid_ver_log"
+                        class="oe_stat_button"
+                        icon="fa-search"
+                        groups="hr.group_hr_user">
+                    <field name="checkid_log_count" widget="statinfo" string="CheckId"/>
+                </button>
+            </xpath>
+
+            <!-- Botones de acción en el header del form -->
+            <xpath expr="//header" position="inside">
+                <button type="object"
+                        name="action_checkid_consultar"
+                        string="Consultar CheckId"
+                        class="btn-primary"
+                        groups="hr.group_hr_user"
+                        confirm="¿Desea ejecutar una consulta a CheckId para este empleado? Se consumirá una solicitud de su cuenta."/>
+                <button type="object"
+                        name="action_checkid_solicitudes"
+                        string="Ver Saldo CheckId"
+                        class="btn-secondary"
+                        groups="hr.group_hr_manager"/>
+            </xpath>
+
+            <!-- Alerta 69/69B visible en el form -->
+            <xpath expr="//sheet" position="inside">
+                <div class="alert alert-danger o_form_label mb-3"
+                     role="alert"
+                     invisible="not checkid_con_problema_69">
+                    <strong>⚠️ ALERTA 69/69B:</strong> Este contribuyente aparece en el listado
+                    del SAT (EFOS/EDOS). Situación:
+                    <field name="checkid_situacion_contribuyente" readonly="1" nolabel="1"/>
+                </div>
+            </xpath>
+
+            <!-- Pestaña CheckId después de las pestañas existentes -->
+            <xpath expr="//notebook" position="inside">
+                <page string="CheckId" name="checkid" groups="hr.group_hr_user">
+
+                    <!-- Estado de la consulta -->
+                    <group>
+                        <group string="Estado de Verificación">
+                            <field name="checkid_estado_consulta"
+                                   widget="badge"
+                                   decoration-success="checkid_estado_consulta == 'ok'"
+                                   decoration-warning="checkid_estado_consulta == 'advertencia'"
+                                   decoration-danger="checkid_estado_consulta == 'error'"
+                                   decoration-muted="checkid_estado_consulta == 'sin_consulta'"/>
+                            <field name="checkid_ultima_consulta" readonly="1"/>
+                        </group>
+                        <group string="Acciones">
+                            <button type="object"
+                                    name="action_checkid_consultar"
+                                    string="🔍 Ejecutar Consulta"
+                                    class="btn-primary"
+                                    confirm="¿Consultar CheckId? Se consumirá una solicitud."/>
+                            <button type="object"
+                                    name="action_checkid_solicitudes"
+                                    string="💳 Ver Saldo Disponible"
+                                    class="btn-secondary"
+                                    groups="hr.group_hr_manager"/>
+                        </group>
+                    </group>
+
+                    <separator string="RFC y Datos Fiscales"/>
+                    <group>
+                        <group>
+                            <field name="checkid_razon_social"/>
+                            <field name="checkid_rfc_valido" widget="boolean_toggle" readonly="1"/>
+                            <field name="checkid_rfc_valido_hasta" readonly="1"/>
+                            <field name="checkid_email_contacto" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="checkid_regimen_fiscal" readonly="1"/>
+                            <field name="checkid_cp_fiscal" readonly="1"/>
+                            <field name="checkid_nss"/>
+                        </group>
+                    </group>
+
+                    <separator string="CURP y Datos Personales"/>
+                    <group>
+                        <group>
+                            <field name="checkid_curp"/>
+                            <field name="checkid_nombres" readonly="1"/>
+                            <field name="checkid_primer_apellido" readonly="1"/>
+                            <field name="checkid_segundo_apellido" readonly="1"/>
+                            <field name="checkid_sexo" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="checkid_fecha_nacimiento" readonly="1"/>
+                            <field name="checkid_nacionalidad" readonly="1"/>
+                            <field name="checkid_entidad" readonly="1"/>
+                            <field name="checkid_municipio_registro" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <separator string="Estado 69/69B (EFOS/EDOS)"/>
+                    <group>
+                        <group>
+                            <field name="checkid_con_problema_69" readonly="1"
+                                   widget="boolean_toggle"/>
+                            <field name="checkid_situacion_contribuyente" readonly="1"/>
+                        </group>
+                    </group>
+                    <group invisible="not checkid_con_problema_69">
+                        <field name="checkid_detalle_efos" readonly="1"
+                               nolabel="1" colspan="2"
+                               widget="text"/>
+                    </group>
+
+                    <separator string="Historial de Consultas"/>
+                    <field name="checkid_log_ids" readonly="1" mode="list" nolabel="1">
+                        <list decoration-danger="not exitoso"
+                              decoration-warning="con_problema_69 and exitoso"
+                              decoration-success="exitoso and not con_problema_69">
+                            <field name="create_date" string="Fecha"/>
+                            <field name="termino_busqueda"/>
+                            <field name="tipo_busqueda"/>
+                            <field name="exitoso" widget="boolean_toggle" readonly="1"/>
+                            <field name="con_problema_69" widget="boolean_toggle" readonly="1"/>
+                            <field name="codigo_error"/>
+                            <field name="descripcion_error"/>
+                        </list>
+                    </field>
+
+                </page>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

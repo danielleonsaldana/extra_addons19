@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ── LIST ── -->
+    <record id="checkid_log_view_list" model="ir.ui.view">
+        <field name="name">mx.checkid.log.view.list</field>
+        <field name="model">mx.checkid.log</field>
+        <field name="arch" type="xml">
+            <list string="Historial CheckId" decoration-danger="not exitoso"
+                  decoration-warning="con_problema_69 and exitoso"
+                  decoration-success="exitoso and not con_problema_69">
+                <field name="create_date" string="Fecha"/>
+                <field name="employee_id" optional="hide"/>
+                <field name="termino_busqueda"/>
+                <field name="tipo_busqueda"/>
+                <field name="exitoso" widget="boolean_toggle" readonly="1"/>
+                <field name="con_problema_69" widget="boolean_toggle" readonly="1"/>
+                <field name="codigo_error" optional="show"/>
+                <field name="descripcion_error" optional="show"/>
+                <field name="datos_obtenidos" optional="hide"/>
+                <field name="solicitudes_restantes" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ── FORM ── -->
+    <record id="checkid_log_view_form" model="ir.ui.view">
+        <field name="name">mx.checkid.log.view.form</field>
+        <field name="model">mx.checkid.log</field>
+        <field name="arch" type="xml">
+            <form string="Consulta CheckId" create="false" edit="false">
+                <sheet>
+                    <group>
+                        <group string="Consulta">
+                            <field name="employee_id"/>
+                            <field name="create_date" string="Fecha"/>
+                            <field name="termino_busqueda"/>
+                            <field name="tipo_busqueda"/>
+                            <field name="exitoso"/>
+                            <field name="solicitudes_restantes"/>
+                        </group>
+                        <group string="Error (si aplica)">
+                            <field name="codigo_error"/>
+                            <field name="descripcion_error"/>
+                        </group>
+                    </group>
+                    <group string="Datos Obtenidos">
+                        <field name="datos_obtenidos" nolabel="1" colspan="2"/>
+                    </group>
+                    <group string="Estado 69/69B">
+                        <field name="con_problema_69"/>
+                        <field name="estado_efos" nolabel="1" colspan="2"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── ACTION ── -->
+    <record id="action_checkid_log" model="ir.actions.act_window">
+        <field name="name">Historial CheckId</field>
+        <field name="res_model">mx.checkid.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{}</field>
+    </record>
+
+    <!-- ── MENU ── -->
+    <menuitem
+        id="menu_checkid_root"
+        name="CheckId"
+        parent="hr.menu_hr_root"
+        sequence="99"
+        groups="hr.group_hr_manager"
+    />
+    <menuitem
+        id="menu_checkid_log"
+        name="Historial de Consultas"
+        parent="menu_checkid_root"
+        action="action_checkid_log"
+        sequence="10"
+    />
+</odoo>

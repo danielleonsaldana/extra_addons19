@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_checkid_log_hr_user,mx.checkid.log hr user,model_mx_checkid_log,hr.group_hr_user,1,0,0,0
+access_checkid_log_hr_manager,mx.checkid.log hr manager,model_mx_checkid_log,hr.group_hr_manager,1,1,1,1
+access_checkid_wizard_hr_user,mx.checkid.wizard hr user,model_mx_checkid_wizard,hr.group_hr_user,1,1,1,1

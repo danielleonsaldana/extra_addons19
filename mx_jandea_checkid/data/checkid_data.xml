@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Parámetros por defecto al instalar -->
+    <record id="param_checkid_auto_query" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.auto_query</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_rfc" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_rfc</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_curp" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_curp</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_nss" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_nss</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_regimen" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_regimen</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_cp" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_cp</field>
+        <field name="value">True</field>
+    </record>
+    <record id="param_checkid_obtain_69" model="ir.config_parameter">
+        <field name="key">mx_jandea_checkid.obtain_69</field>
+        <field name="value">True</field>
+    </record>
+</odoo>
