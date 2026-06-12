@@ -6,10 +6,11 @@
         <field name="priority">100</field>
         <field name="inherit_id" ref="base_setup.action_general_configuration"/>
         <field name="arch" type="xml">
-            <xpath expr="//form/footer" position="before">
+            <form position="inside">
                 <app string="CheckId" name="mx_jandea_checkid">
                     <block title="Integración CheckId (Canicalabs)">
-                        <setting string="API Key" help="Obtenla en https://www.checkid.mx/App/ControlApi">
+                        <setting string="API Key"
+                                 help="Obtenla en https://www.checkid.mx/App/ControlApi">
                             <field name="checkid_api_key"
                                    password="True"
                                    placeholder="Ej: abc123xyz..."/>
@@ -25,7 +26,7 @@
                             <field name="checkid_obtain_rfc"/>
                         </setting>
                         <setting string="CURP y datos personales"
-                                 help="CURP, nombre, fecha de nacimiento y entidad de nacimiento.">
+                                 help="CURP, nombre, fecha de nacimiento y entidad.">
                             <field name="checkid_obtain_curp"/>
                         </setting>
                         <setting string="NSS"
@@ -41,12 +42,12 @@
                             <field name="checkid_obtain_cp"/>
                         </setting>
                         <setting string="Estado 69/69B (EFOS/EDOS)"
-                                 help="Verificar si el contribuyente aparece en el listado 69 o 69B del SAT.">
+                                 help="Verificar si aparece en el listado 69 o 69B del SAT.">
                             <field name="checkid_obtain_69"/>
                         </setting>
                     </block>
                 </app>
-            </xpath>
+            </form>
         </field>
     </record>
 </odoo>
