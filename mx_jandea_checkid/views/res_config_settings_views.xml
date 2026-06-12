@@ -125,7 +125,7 @@
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_checkid_config_form"/>
-        <field name="target">inline</field>
+        <field name="target">current</field>
         <field name="context">{'module' : 'mx_jandea_checkid'}</field>
     </record>
 
