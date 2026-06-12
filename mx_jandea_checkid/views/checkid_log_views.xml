@@ -65,16 +65,9 @@
 
     <!-- ── MENU ── -->
     <menuitem
-        id="menu_checkid_root"
-        name="CheckId"
-        parent="hr.menu_hr_root"
-        sequence="99"
-        groups="hr.group_hr_manager"
-    />
-    <menuitem
         id="menu_checkid_log"
         name="Historial de Consultas"
-        parent="menu_checkid_root"
+        parent="mx_jandea_checkid.menu_checkid_root"
         action="action_checkid_log"
         sequence="10"
     />
