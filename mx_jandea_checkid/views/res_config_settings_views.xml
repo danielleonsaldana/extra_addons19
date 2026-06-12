@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- 1. Vista heredada de Settings -->
     <record id="res_config_settings_view_form_checkid" model="ir.ui.view">
         <field name="name">res.config.settings.view.form.checkid</field>
         <field name="model">res.config.settings</field>
@@ -52,17 +53,7 @@
         </field>
     </record>
 
-    <!-- Menú bajo Configuración de RR.HH. existente -->
-    <menuitem
-        id="menu_checkid_config"
-        name="CheckId"
-        parent="hr.menu_human_resources_configuration"
-        action="action_checkid_config"
-        sequence="99"
-        groups="base.group_system"
-    />
-
-    <!-- Acción para abrir Settings en la sección CheckId -->
+    <!-- 2. Acción — debe declararse ANTES que el menuitem que la referencia -->
     <record id="action_checkid_config" model="ir.actions.act_window">
         <field name="name">Configuración CheckId</field>
         <field name="res_model">res.config.settings</field>
@@ -71,12 +62,22 @@
         <field name="context">{'module': 'mx_jandea_checkid'}</field>
     </record>
 
-    <!-- Menú raíz CheckId bajo HR (para Historial y Log) -->
+    <!-- 3. Menú raíz CheckId bajo HR (sin acción, solo contenedor) -->
     <menuitem
         id="menu_checkid_root"
         name="CheckId"
         parent="hr.menu_hr_root"
         sequence="98"
         groups="hr.group_hr_manager"
+    />
+
+    <!-- 4. Menú Configuración bajo RR.HH. > Configuración -->
+    <menuitem
+        id="menu_checkid_config"
+        name="CheckId"
+        parent="hr.menu_human_resources_configuration"
+        action="action_checkid_config"
+        sequence="99"
+        groups="base.group_system"
     />
 </odoo>
