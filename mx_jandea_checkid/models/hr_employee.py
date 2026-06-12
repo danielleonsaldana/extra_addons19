@@ -290,11 +290,6 @@ class HrEmployee(models.Model):
         rfc = getattr(self, 'ssnid', None) or ''
         if rfc and _detectar_tipo(rfc) == 'rfc':
             return rfc.strip().upper()
-        # Intentar desde el partner vinculado
-        if self.address_home_id and self.address_home_id.vat:
-            vat = self.address_home_id.vat.strip().upper()
-            if _detectar_tipo(vat) in ('rfc', 'curp'):
-                return vat
         return ''
 
     def _get_api_key(self):
