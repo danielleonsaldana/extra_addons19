@@ -422,15 +422,8 @@ class EmployeeImportWizard(models.TransientModel):
             'fecha_baja': _date_val(row, 'f_baja') or False,
         }
 
-        # Fecha de ingreso → date de contrato
-        f_ingreso = _date_val(row, 'f_ingreso')
-        if f_ingreso:
-            vals['contract_ids'] = [(0, 0, {
-                'name': f'Contrato {full_name}',
-                'date_start': f_ingreso,
-                'wage': sueldo_mensual,
-                'company_id': self.company_id.id,
-            })]
+        # Fecha de ingreso guardada en salary_monthly (contrato se crea por separado)
+        # En Odoo 19 contract_ids no existe en hr.employee
 
         # Dirección privada (res.partner)
         calle = _val(row, 'calle')
