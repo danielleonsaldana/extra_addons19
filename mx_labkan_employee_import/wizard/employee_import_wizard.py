@@ -197,6 +197,33 @@ class EmployeeImportWizard(models.TransientModel):
     count_skipped = fields.Integer(string='Omitidos', readonly=True)
     count_error = fields.Integer(string='Errores', readonly=True)
 
+    # ── CheckId ───────────────────────────────────────────────────────────────
+    checkid_available = fields.Boolean(
+        string='CheckId disponible',
+        compute='_compute_checkid_available',
+    )
+    checkid_pending = fields.Boolean(
+        string='Pendiente validar con CheckId',
+        default=False,
+        readonly=True,
+    )
+    checkid_done = fields.Boolean(
+        string='CheckId ejecutado',
+        default=False,
+        readonly=True,
+    )
+    checkid_count_ok = fields.Integer(string='CheckId OK', readonly=True)
+    checkid_count_error = fields.Integer(string='CheckId Error', readonly=True)
+
+    @api.depends()
+    def _compute_checkid_available(self):
+        module = self.env['ir.module.module'].sudo().search([
+            ('name', '=', 'mx_jandea_checkid'),
+            ('state', '=', 'installed'),
+        ], limit=1)
+        for rec in self:
+            rec.checkid_available = bool(module)
+
     # ──────────────────────────────────────────────────────────────────────────
     # Acción principal de importación
     # ──────────────────────────────────────────────────────────────────────────
@@ -345,6 +372,13 @@ class EmployeeImportWizard(models.TransientModel):
             'count_error': errors,
         })
 
+        # ── ¿CheckId disponible? marcar como pendiente ───────────────────────
+        module = self.env['ir.module.module'].sudo().search([
+            ('name', '=', 'mx_jandea_checkid'),
+            ('state', '=', 'installed'),
+        ], limit=1)
+        self.write({'checkid_pending': bool(module) and (created + updated) > 0})
+
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'mx.employee.import.wizard',
@@ -416,6 +450,57 @@ class EmployeeImportWizard(models.TransientModel):
         }
 
         return vals
+
+    def action_checkid_validate(self):
+        """Lanza la consulta CheckId para todos los empleados importados exitosamente."""
+        self.ensure_one()
+        emp_ids = self.result_line_ids.filtered(
+            lambda l: l.employee_id and l.status in ('created', 'updated')
+        ).mapped('employee_id')
+
+        if not emp_ids:
+            raise UserError(_('No hay empleados creados/actualizados para validar.'))
+
+        ok = 0
+        errors = 0
+        for emp in emp_ids:
+            # Usar mx_rfc o mx_curp como término de búsqueda
+            termino = (emp.mx_rfc or emp.mx_curp or '').strip().upper()
+            if not termino:
+                errors += 1
+                continue
+            try:
+                emp._ejecutar_consulta_checkid(termino)
+                ok += 1
+            except Exception as e:
+                _logger.warning('CheckId error para %s: %s', emp.name, e)
+                errors += 1
+
+        self.write({
+            'checkid_done': True,
+            'checkid_pending': False,
+            'checkid_count_ok': ok,
+            'checkid_count_error': errors,
+        })
+
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'mx.employee.import.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
+
+    def action_skip_checkid(self):
+        """El usuario decidió no validar con CheckId ahora."""
+        self.write({'checkid_pending': False})
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'mx.employee.import.wizard',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'new',
+        }
 
     def action_close(self):
         return {'type': 'ir.actions.act_window_close'}

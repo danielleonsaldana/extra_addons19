@@ -19,8 +19,6 @@
     'category': 'Human Resources',
     'depends': [
         'hr',
-        'hr_payroll',
-        'l10n_mx_hr_payroll',
         'base_setup',
     ],
     'data': [

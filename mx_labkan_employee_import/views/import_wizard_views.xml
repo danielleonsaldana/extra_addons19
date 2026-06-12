@@ -8,28 +8,65 @@
             <form string="Importación Masiva de Empleados - Formato TEVA">
                 <sheet>
 
-                    <!-- Resumen post-importación -->
+                    <!-- ── Resumen post-importación ──────────────────────── -->
                     <div invisible="not import_done">
                         <div class="alert alert-success" role="alert">
-                            <div class="row">
-                                <div class="col-3 text-center">
+                            <div class="row text-center">
+                                <div class="col-3">
                                     <h4 class="text-success"><field name="count_created" readonly="1"/></h4>
                                     <small>Creados</small>
                                 </div>
-                                <div class="col-3 text-center">
+                                <div class="col-3">
                                     <h4 class="text-info"><field name="count_updated" readonly="1"/></h4>
                                     <small>Actualizados</small>
                                 </div>
-                                <div class="col-3 text-center">
+                                <div class="col-3">
                                     <h4 class="text-warning"><field name="count_skipped" readonly="1"/></h4>
                                     <small>Omitidos</small>
                                 </div>
-                                <div class="col-3 text-center">
+                                <div class="col-3">
                                     <h4 class="text-danger"><field name="count_error" readonly="1"/></h4>
                                     <small>Errores</small>
                                 </div>
                             </div>
                         </div>
+
+                        <!-- ── Bloque CheckId: pregunta ───────────────────── -->
+                        <div invisible="not checkid_pending"
+                             class="alert alert-warning mt-2" role="alert"
+                             style="border-left: 5px solid #f0ad4e;">
+                            <div class="row align-items-center">
+                                <div class="col-8">
+                                    <h5 style="margin:0;">
+                                        <i class="fa fa-search"/> ¿Deseas validar los empleados con <b>CheckId</b>?
+                                    </h5>
+                                    <small class="text-muted">
+                                        Se consultará RFC, CURP, NSS, Régimen Fiscal y lista 69/69B del SAT
+                                        para cada empleado creado o actualizado. Esto consume créditos de tu cuenta CheckId.
+                                    </small>
+                                </div>
+                                <div class="col-4 text-right" style="display:flex; gap:8px; justify-content:flex-end;">
+                                    <button name="action_checkid_validate"
+                                            string="✓ Sí, validar con CheckId"
+                                            type="object"
+                                            class="btn btn-warning btn-sm"/>
+                                    <button name="action_skip_checkid"
+                                            string="✗ Ahora no"
+                                            type="object"
+                                            class="btn btn-secondary btn-sm"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Bloque CheckId: resultado ─────────────────── -->
+                        <div invisible="not checkid_done"
+                             class="alert alert-info mt-2" role="alert">
+                            <i class="fa fa-check-circle text-success"/>
+                            <b>CheckId ejecutado:</b>
+                            <field name="checkid_count_ok" readonly="1"/> consultas exitosas,
+                            <field name="checkid_count_error" readonly="1"/> con error.
+                        </div>
+
                     </div>
 
                     <notebook>
@@ -37,7 +74,6 @@
                         <!-- ── Configuración ─────────────────────────────── -->
                         <page string="Configuración de Importación" name="config"
                               invisible="import_done">
-
                             <group>
                                 <group string="Archivo">
                                     <field name="file_data"
@@ -52,7 +88,6 @@
                                     <field name="header_row"/>
                                 </group>
                             </group>
-
                             <group>
                                 <group string="Comportamiento ante duplicados">
                                     <field name="skip_duplicates"/>
@@ -64,25 +99,19 @@
                                     <field name="link_multicompany"/>
                                 </group>
                             </group>
-
                             <group string="Configuración de Salario Informativo">
                                 <field name="salary_imss_pct"
                                        help="Porcentaje del sueldo mensual que se considera parte IMSS. El resto se guarda como exento."/>
                             </group>
-
                             <div class="alert alert-info mt-2" role="alert">
                                 <i class="fa fa-file-excel-o"/> <b>Formato esperado:</b>
                                 Plantilla TEVA de 52 columnas. Fila 1 = encabezados, datos desde fila 2.
-                                Columnas clave: RFC (col 29), CURP (col 32), NSS (col 26),
-                                Sueldo Mensual (col 39), Apellido Paterno (col 8), Nombre (col 10).
                             </div>
-
                         </page>
 
                         <!-- ── Resultados ────────────────────────────────── -->
                         <page string="Resultados" name="results"
                               invisible="not import_done">
-
                             <field name="result_line_ids" readonly="1">
                                 <list decoration-success="status == 'created'"
                                       decoration-info="status == 'updated'"
@@ -103,10 +132,14 @@
                                     <field name="employee_id" string="Empleado" optional="show"/>
                                 </list>
                             </field>
-
                         </page>
 
                     </notebook>
+
+                    <!-- Campos invisibles necesarios para lógica de vista -->
+                    <field name="checkid_available" invisible="1"/>
+                    <field name="checkid_pending" invisible="1"/>
+                    <field name="checkid_done" invisible="1"/>
 
                 </sheet>
 
