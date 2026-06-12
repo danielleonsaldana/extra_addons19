@@ -372,24 +372,17 @@ class EmployeeImportWizard(models.TransientModel):
         salary_imss = round(sueldo_mensual * pct, 2)
         salary_exempt = round(sueldo_mensual * (1 - pct), 2)
 
-        # Género
-
-        # Estado civil
-        civil_raw = _val(row, 'estado_civil').upper()
-        marital = MARITAL_MAP.get(civil_raw, 'single')
-
+        # Solo campos que existen en Odoo 19 hr.employee
         vals = {
             'name': full_name,
             'company_id': self.company_id.id,
-            # Datos fiscales
+            # Datos fiscales (campos custom del módulo)
             'mx_rfc': rfc or False,
             'mx_curp': curp or False,
             'rfc_validated_format': rfc_format_ok,
-            # Datos personales
-            'birthday': _date_val(row, 'fecha_nac') or False,
-            'marital': marital,
+            # Datos personales (nativos Odoo 19)
             'work_email': _val(row, 'correo') or False,
-            # TEVA meta
+            # Campos TEVA custom
             'teva_cliente': _val(row, 'cliente') or False,
             'teva_sucursal': _val(row, 'sucursal') or False,
             'teva_estatus': _val(row, 'estatus') or False,
@@ -398,67 +391,29 @@ class EmployeeImportWizard(models.TransientModel):
             'teva_contrato': _val(row, 'contrato') or False,
             'teva_puesto': _val(row, 'puesto') or False,
             'teva_descripcion_puesto': _val(row, 'desc_puesto') or False,
-            # NSS
+            # NSS custom
             'nss': _val(row, 'nss') or False,
-            # Salario
+            # Salario custom (informativo)
             'salary_monthly': sueldo_mensual,
             'salary_biweekly': sueldo_quincenal,
             'salary_daily': sd,
             'salary_imss': salary_imss,
             'salary_exempt': salary_exempt,
-            # Créditos
+            # Créditos custom
             'infonavit_credit': _val(row, 'credito_infonavit') or False,
             'infonavit_factor': _val(row, 'factor_desc') or False,
             'infonavit_pct': _float_val(row, 'pct_info'),
             'infonavit_pesos': _float_val(row, 'pesos_info'),
             'fonacot_retention': _float_val(row, 'retencion_fonacot'),
-            # Banco
+            # Banco custom
             'bank_name': _val(row, 'banco') or False,
             'bank_account_number': _val(row, 'cuenta') or False,
             'bank_card_number': _val(row, 'tarjeta') or False,
             'bank_clabe': _val(row, 'clabe') or False,
-            # Fechas laborales
+            # Fechas custom
             'fecha_antiguedad': _date_val(row, 'f_antiguedad') or False,
             'fecha_baja': _date_val(row, 'f_baja') or False,
         }
-
-        # Fecha de ingreso guardada en salary_monthly (contrato se crea por separado)
-        # En Odoo 19 contract_ids no existe en hr.employee
-
-        # Dirección privada (res.partner)
-        calle = _val(row, 'calle')
-        num_ext = _val(row, 'num_ext')
-        colonia = _val(row, 'colonia')
-        cp = _val(row, 'cp')
-        municipio = _val(row, 'municipio')
-        estado = _val(row, 'estado')
-
-        if any([calle, colonia, cp, municipio, estado]):
-            street = f'{calle} {num_ext}'.strip() if calle else ''
-            country_mx = self.env.ref('base.mx', raise_if_not_found=False)
-            private_partner_vals = {
-                'name': full_name,
-                'street': street or False,
-                'street2': colonia or False,
-                'zip': cp or False,
-                'city': municipio or False,
-                'country_id': country_mx.id if country_mx else False,
-                'email': _val(row, 'correo') or False,
-                'type': 'contact',
-            }
-            # Buscar estado de México por nombre/clave
-            if estado:
-                state_rec = self.env['res.country.state'].search([
-                    ('country_id.code', '=', 'MX'),
-                    '|',
-                    ('name', 'ilike', estado),
-                    ('code', 'ilike', estado),
-                ], limit=1)
-                if state_rec:
-                    private_partner_vals['state_id'] = state_rec.id
-
-            partner = self.env['res.partner'].sudo().create(private_partner_vals)
-            vals['address_home_id'] = partner.id
 
         return vals
 
