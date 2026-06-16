@@ -2,7 +2,7 @@
 """
 mx_jandea_employee_import / wizard / employee_import_wizard.py
 
-Wizard de importación masiva desde plantilla TEVA (52 columnas IMSS).
+Wizard de importación masiva desde plantilla IMSS de 52 columnas.
 
 Flujo de uso:
   1. Usuario sube el archivo XLS/XLSX y configura opciones → [Importar Empleados]
@@ -24,7 +24,7 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Mapa de columnas TEVA → índice (base 0)
+# Mapa de columnas IMSS → índice (base 0)
 # ─────────────────────────────────────────────────────────────────────────────
 COL = {
     'num':               0,
@@ -158,7 +158,7 @@ def _date_val(row, col_name):
 # ─────────────────────────────────────────────────────────────────────────────
 class EmployeeImportWizard(models.TransientModel):
     _name = 'mx.jandea.employee.import.wizard'
-    _description = 'Importación Masiva de Empleados - Formato TEVA (IMSS)'
+    _description = 'Importación Masiva de Empleados IMSS'
 
     # ── Archivo ───────────────────────────────────────────────────────────────
     file_data = fields.Binary(string='Archivo XLS/XLSX', required=True, attachment=False)
@@ -171,7 +171,7 @@ class EmployeeImportWizard(models.TransientModel):
     )
     header_row = fields.Integer(
         string='Fila de encabezados (1 = primera fila)', default=1,
-        help='Número de fila donde están los encabezados TEVA. Los datos inician en la siguiente.',
+        help='Número de fila donde están los encabezados. Los datos inician en la siguiente.',
     )
     skip_duplicates = fields.Boolean(
         string='Omitir duplicados (mismo RFC/empresa)', default=True,
@@ -614,7 +614,7 @@ class EmployeeImportWizard(models.TransientModel):
 # ─────────────────────────────────────────────────────────────────────────────
 class EmployeeImportResult(models.TransientModel):
     _name = 'mx.jandea.employee.import.result'
-    _description = 'Resultado de importación de empleado TEVA'
+    _description = 'Resultado de importación de empleado'
 
     wizard_id = fields.Many2one('mx.jandea.employee.import.wizard', ondelete='cascade')
     row_number = fields.Integer(string='Fila')

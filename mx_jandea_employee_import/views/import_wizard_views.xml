@@ -5,7 +5,7 @@
         <field name="name">mx.jandea.employee.import.wizard.form</field>
         <field name="model">mx.jandea.employee.import.wizard</field>
         <field name="arch" type="xml">
-            <form string="Importación Masiva de Empleados - Formato TEVA">
+            <form string="Importación Masiva de Empleados">
                 <sheet>
 
                     <!-- ── Resumen post-importación ──────────────────────── -->
@@ -93,11 +93,11 @@
                         <page string="Configuración" name="config"
                               invisible="import_done">
                             <group>
-                                <group string="Archivo TEVA">
+                                <group string="Archivo XLS/XLSX">
                                     <field name="file_data"
                                            widget="binary"
                                            filename="file_name"
-                                           string="Archivo XLS/XLSX (formato TEVA)"
+                                           string="Archivo XLS/XLSX"
                                            required="1"/>
                                     <field name="file_name" invisible="1"/>
                                 </group>
@@ -119,7 +119,7 @@
                             </group>
                             <div class="alert alert-info mt-2" role="alert">
                                 <i class="fa fa-file-excel-o"/>
-                                <b>Campos mapeados desde TEVA:</b>
+                                <b>Campos mapeados:</b>
                                 Nombre completo, RFC, CURP, NSS, género, estado civil,
                                 fecha de nacimiento, domicilio, correo de trabajo,
                                 puesto (job_title), sueldo (wage), fecha de ingreso
@@ -215,7 +215,7 @@
     </record>
 
     <record id="action_mx_jandea_employee_import_wizard" model="ir.actions.act_window">
-        <field name="name">Importar Empleados (TEVA)</field>
+        <field name="name">Importar Empleados</field>
         <field name="res_model">mx.jandea.employee.import.wizard</field>
         <field name="view_mode">form</field>
         <field name="target">new</field>

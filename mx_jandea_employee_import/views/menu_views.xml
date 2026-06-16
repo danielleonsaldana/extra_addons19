@@ -2,8 +2,8 @@
 <odoo>
 
     <menuitem
-        id="menu_mx_jandea_employee_import_teva"
-        name="Importar Empleados (TEVA)"
+        id="menu_mx_jandea_employee_import"
+        name="Importar Empleados"
         parent="hr.menu_hr_root"
         action="action_mx_jandea_employee_import_wizard"
         sequence="99"

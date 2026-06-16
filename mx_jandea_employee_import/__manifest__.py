@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'MX Jandea - Importación Masiva de Empleados (TEVA)',
+    'name': 'MX Jandea - Importación Masiva de Empleados',
     'version': '17.0.1.0.0',
-    'summary': 'Importación masiva de empleados desde formato TEVA con validación de RFC',
+    'summary': 'Importación masiva de empleados desde plantilla IMSS con validación de RFC',
     'description': """
-        Módulo para carga masiva de empleados desde el formato TEVA (.xls/.xlsx).
+        Módulo para carga masiva de empleados desde plantilla IMSS (.xls/.xlsx).
 
         Características:
-        - Importación desde plantilla TEVA (52 columnas IMSS)
+        - Importación desde plantilla IMSS (52 columnas)
         - Validación de formato RFC local (persona física y moral)
         - Mapeo a campos NATIVOS de Odoo hr.employee / hr.version
         - Campos custom mínimos: mx_rfc, mx_curp, nss (mexicanos estándar)
