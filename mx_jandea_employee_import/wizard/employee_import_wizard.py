@@ -316,6 +316,9 @@ class EmployeeImportWizard(models.TransientModel):
                     action = 'updated'
                     updated += 1
                 else:
+                    # Log de vals_create para debug
+                    _logger.info('IMPORT DEBUG vals_create: %s', vals_create)
+                    _logger.info('IMPORT DEBUG vals_write keys: %s', list(vals_write.keys()))
                     # Create con campos mínimos
                     emp = (
                         self.env['hr.employee']
@@ -323,9 +326,18 @@ class EmployeeImportWizard(models.TransientModel):
                         .with_company(self.company_id)
                         .create(vals_create)
                     )
-                    # Write post-create con campos de versión y custom MX
-                    if vals_write:
-                        emp.sudo().write(vals_write)
+                    _logger.info('IMPORT DEBUG create OK: emp.id=%s', emp.id)
+                    # Write post-create campo por campo para aislar el error
+                    for fname, fval in vals_write.items():
+                        try:
+                            emp.sudo().write({fname: fval})
+                            _logger.info('IMPORT DEBUG write OK: %s = %r', fname, fval)
+                        except Exception as field_err:
+                            import traceback
+                            _logger.error(
+                                'IMPORT DEBUG write FAIL campo="%s" val=%r\n%s',
+                                fname, fval, traceback.format_exc()
+                            )
                     action = 'created'
                     created += 1
 
@@ -394,29 +406,27 @@ class EmployeeImportWizard(models.TransientModel):
     # ──────────────────────────────────────────────────────────────────────────
     def _build_employee_vals(self, row, rfc, rfc_format_ok):
         """
-        Retorna (vals_create, vals_write):
-          - vals_create: solo campos seguros para el create() inicial
-          - vals_write:  campos de hr.version y opcionales, se escriben post-create
-        Esto evita el error 'str object is not callable' de Odoo 19 al mezclar
-        campos _inherits en un solo create().
+        Retorna (vals_create, vals_write).
+        vals_create: SOLO name + company_id. Nada más en el create inicial.
+        vals_write:  TODO lo demás, se escribe campo por campo post-create.
         """
         nombre    = _val(row, 'nombre')
         ap_pat    = _val(row, 'apellido_pat')
         ap_mat    = _val(row, 'apellido_mat')
-        full_name = ' '.join(filter(None, [ap_pat, ap_mat, nombre]))
+        full_name = ' '.join(filter(None, [ap_pat, ap_mat, nombre])) or 'Sin nombre'
 
-        # ── vals_create: mínimo indispensable ─────────────────────────────
+        # MÍNIMO ABSOLUTO — solo name y company_id
         vals_create = {
             'name':       full_name,
             'company_id': self.company_id.id,
         }
 
-        correo = _val(row, 'correo')
-        if correo:
-            vals_create['work_email'] = correo
-
         # ── vals_write: campos custom MX + campos hr.version ──────────────
         vals_write = {}
+
+        correo = _val(row, 'correo')
+        if correo:
+            vals_write['work_email'] = correo
 
         curp = _val(row, 'curp').upper().replace(' ', '')
         if rfc:
