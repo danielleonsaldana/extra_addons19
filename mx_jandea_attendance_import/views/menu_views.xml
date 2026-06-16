@@ -1,21 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Importar Faltas: bajo el menú principal de Empleados -->
     <menuitem
         id="menu_mx_jandea_import_faltas"
         name="Importar Faltas"
         parent="hr.menu_hr_root"
-        action="action_mx_jandea_leave_import_wizard"
+        action="mx_jandea_attendance_import.action_mx_jandea_leave_import_wizard"
         sequence="100"
         groups="hr.group_hr_manager"/>
 
-    <!-- Reporte de Faltas: bajo Reportes de Time Off -->
     <menuitem
         id="menu_mx_jandea_faltas_report"
         name="Reporte de Faltas MX"
         parent="hr_holidays.menu_hr_holidays_report"
-        action="action_mx_jandea_faltas_report"
+        action="mx_jandea_attendance_import.action_mx_jandea_faltas_report"
         sequence="20"
         groups="hr.group_hr_user"/>
 
