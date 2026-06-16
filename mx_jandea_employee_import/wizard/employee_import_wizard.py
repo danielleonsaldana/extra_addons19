@@ -268,7 +268,7 @@ class EmployeeImportWizard(models.TransientModel):
             # Validación RFC
             rfc_format_ok = False
             if rfc and self.validate_rfc_format:
-                rfc_format_ok, _ = self.env['hr.employee']._validate_rfc_format(rfc)
+                rfc_format_ok, _rfc_msg = self.env['hr.employee']._validate_rfc_format(rfc)
             elif rfc:
                 rfc_format_ok = True
 
