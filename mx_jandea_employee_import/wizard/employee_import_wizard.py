@@ -351,10 +351,14 @@ class EmployeeImportWizard(models.TransientModel):
                 })
 
             except Exception as e:
-                _logger.error('Error al crear empleado fila %d: %s', row_idx, e)
+                import traceback as _tb
+                _logger.error(
+                    'IMPORT ERROR COMPLETO fila %d:\n%s',
+                    row_idx, _tb.format_exc()
+                )
                 results.append({
                     'row': row_idx, 'name': full_name, 'rfc': rfc,
-                    'status': 'error', 'message': str(e),
+                    'status': 'error', 'message': repr(e)[:200],
                     'rfc_format_ok': rfc_format_ok,
                     'checkid_selected': False,
                 })
