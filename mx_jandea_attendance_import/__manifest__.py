@@ -24,9 +24,12 @@
     'data': [
         'security/ir.model.access.csv',
         'data/hr_leave_type_data.xml',
-        'views/hr_leave_views.xml',
-        'views/menu_views.xml',
+        # Primero el wizard (define la acción)
         'wizard/leave_import_wizard_views.xml',
+        # Luego las vistas que heredan
+        'views/hr_leave_views.xml',
+        # El menú al final (referencia la acción ya cargada)
+        'views/menu_views.xml',
     ],
     'installable': True,
     'application': False,
