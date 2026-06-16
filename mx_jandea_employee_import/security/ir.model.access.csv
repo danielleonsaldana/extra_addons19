@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mx_jandea_emp_import_wizard_manager,mx.jandea.employee.import.wizard manager,model_mx_jandea_employee_import_wizard,hr.group_hr_manager,1,1,1,1
+access_mx_jandea_emp_import_wizard_user,mx.jandea.employee.import.wizard user,model_mx_jandea_employee_import_wizard,hr.group_hr_user,1,1,1,0
+access_mx_jandea_emp_import_result_manager,mx.jandea.employee.import.result manager,model_mx_jandea_employee_import_result,hr.group_hr_manager,1,1,1,1
+access_mx_jandea_emp_import_result_user,mx.jandea.employee.import.result user,model_mx_jandea_employee_import_result,hr.group_hr_user,1,1,1,0

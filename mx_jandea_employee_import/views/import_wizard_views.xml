@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mx_jandea_employee_import_wizard_form" model="ir.ui.view">
+        <field name="name">mx.jandea.employee.import.wizard.form</field>
+        <field name="model">mx.jandea.employee.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importación Masiva de Empleados - Formato TEVA">
+                <sheet>
+
+                    <!-- ── Resumen post-importación ──────────────────────── -->
+                    <div invisible="not import_done">
+                        <div class="alert alert-success mb-2" role="alert">
+                            <div class="row text-center">
+                                <div class="col-3">
+                                    <h4 class="text-success">
+                                        <field name="count_created" readonly="1"/>
+                                    </h4>
+                                    <small>Creados</small>
+                                </div>
+                                <div class="col-3">
+                                    <h4 class="text-info">
+                                        <field name="count_updated" readonly="1"/>
+                                    </h4>
+                                    <small>Actualizados</small>
+                                </div>
+                                <div class="col-3">
+                                    <h4 class="text-warning">
+                                        <field name="count_skipped" readonly="1"/>
+                                    </h4>
+                                    <small>Omitidos</small>
+                                </div>
+                                <div class="col-3">
+                                    <h4 class="text-danger">
+                                        <field name="count_error" readonly="1"/>
+                                    </h4>
+                                    <small>Errores</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Panel CheckId: selección y ejecución ───────── -->
+                        <div invisible="not checkid_available"
+                             class="alert alert-info mb-2" role="alert"
+                             style="border-left: 5px solid #17a2b8;">
+                            <div class="row align-items-center">
+                                <div class="col-7">
+                                    <h5 style="margin:0;">
+                                        <i class="fa fa-search"/> Validación <b>CheckId</b>
+                                    </h5>
+                                    <small class="text-muted">
+                                        Marca el checkbox <b>CheckId</b> en cada fila que deseas
+                                        consultar, luego presiona el botón. Los registros creados/actualizados
+                                        vienen pre-seleccionados.
+                                        <b><field name="checkid_selected_count" readonly="1" nolabel="1"/>
+                                        seleccionados.</b>
+                                    </small>
+                                </div>
+                                <div class="col-5"
+                                     style="display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap;">
+                                    <button name="action_select_all_checkid"
+                                            string="Seleccionar todos"
+                                            type="object"
+                                            class="btn btn-outline-secondary btn-sm"/>
+                                    <button name="action_deselect_all_checkid"
+                                            string="Limpiar selección"
+                                            type="object"
+                                            class="btn btn-outline-secondary btn-sm"/>
+                                    <button name="action_checkid_validate_selected"
+                                            string="✓ Validar seleccionados con CheckId"
+                                            type="object"
+                                            class="btn btn-primary btn-sm"
+                                            confirm="Se realizará una consulta CheckId por cada empleado seleccionado. Esto consume créditos. ¿Continuar?"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Resultado de CheckId (post-ejecución) ──────── -->
+                        <div invisible="not checkid_done"
+                             class="alert alert-success mb-2" role="alert">
+                            <i class="fa fa-check-circle"/>
+                            <b>CheckId completado:</b>
+                            <field name="checkid_count_ok" readonly="1"/> exitosas,
+                            <field name="checkid_count_error" readonly="1"/> con error.
+                            Revisa la columna <b>Estado CheckId</b> en la tabla de resultados.
+                        </div>
+
+                    </div>
+
+                    <notebook>
+
+                        <!-- ── Configuración ─────────────────────────────── -->
+                        <page string="Configuración" name="config"
+                              invisible="import_done">
+                            <group>
+                                <group string="Archivo TEVA">
+                                    <field name="file_data"
+                                           widget="binary"
+                                           filename="file_name"
+                                           string="Archivo XLS/XLSX (formato TEVA)"
+                                           required="1"/>
+                                    <field name="file_name" invisible="1"/>
+                                </group>
+                                <group string="Empresa destino">
+                                    <field name="company_id" required="1"/>
+                                    <field name="header_row"/>
+                                </group>
+                            </group>
+                            <group>
+                                <group string="Duplicados">
+                                    <field name="skip_duplicates"/>
+                                    <field name="update_existing"
+                                           invisible="not skip_duplicates"/>
+                                </group>
+                                <group string="Opciones">
+                                    <field name="validate_rfc_format"/>
+                                    <field name="link_multicompany"/>
+                                </group>
+                            </group>
+                            <div class="alert alert-info mt-2" role="alert">
+                                <i class="fa fa-file-excel-o"/>
+                                <b>Campos mapeados desde TEVA:</b>
+                                Nombre completo, RFC, CURP, NSS, género, estado civil,
+                                fecha de nacimiento, domicilio, correo de trabajo,
+                                puesto (job_title), sueldo (wage), fecha de ingreso
+                                (contract_date_start).
+                            </div>
+                        </page>
+
+                        <!-- ── Resultados ────────────────────────────────── -->
+                        <page string="Resultados" name="results"
+                              invisible="not import_done">
+                            <field name="result_line_ids">
+                                <list decoration-success="status == 'created'"
+                                      decoration-info="status == 'updated'"
+                                      decoration-warning="status == 'skipped'"
+                                      decoration-danger="status == 'error'"
+                                      editable="bottom">
+                                    <field name="row_number" string="Fila" readonly="1"/>
+                                    <field name="employee_name" string="Nombre" readonly="1"/>
+                                    <field name="rfc" string="RFC" readonly="1"/>
+                                    <field name="rfc_format_ok"
+                                           widget="boolean"
+                                           string="RFC ✓"
+                                           readonly="1"/>
+                                    <field name="status"
+                                           widget="badge"
+                                           decoration-success="status == 'created'"
+                                           decoration-info="status == 'updated'"
+                                           decoration-warning="status == 'skipped'"
+                                           decoration-danger="status == 'error'"
+                                           string="Resultado"
+                                           readonly="1"/>
+                                    <field name="message" string="Mensaje" readonly="1"/>
+                                    <field name="employee_id"
+                                           string="Empleado"
+                                           optional="show"
+                                           readonly="1"/>
+                                    <!-- CheckId: checkbox editable + estado por fila -->
+                                    <field name="checkid_selected"
+                                           string="CheckId"
+                                           widget="boolean"
+                                           invisible="not parent.checkid_available"
+                                           column_invisible="not parent.checkid_available"/>
+                                    <field name="checkid_status"
+                                           string="Estado CheckId"
+                                           widget="badge"
+                                           decoration-success="checkid_status == 'ok'"
+                                           decoration-warning="checkid_status == 'warning'"
+                                           decoration-danger="checkid_status == 'error'"
+                                           decoration-muted="checkid_status == 'pending'"
+                                           optional="show"
+                                           readonly="1"
+                                           invisible="not parent.checkid_available"
+                                           column_invisible="not parent.checkid_available"/>
+                                    <field name="checkid_message"
+                                           string="Resultado CheckId"
+                                           optional="hide"
+                                           readonly="1"
+                                           invisible="not parent.checkid_available"
+                                           column_invisible="not parent.checkid_available"/>
+                                </list>
+                            </field>
+                        </page>
+
+                    </notebook>
+
+                    <!-- Campos invisibles para lógica de vista -->
+                    <field name="checkid_available" invisible="1"/>
+                    <field name="checkid_done" invisible="1"/>
+                    <field name="checkid_selected_count" invisible="1"/>
+
+                </sheet>
+
+                <footer>
+                    <button name="action_import"
+                            string="Importar Empleados"
+                            type="object"
+                            class="btn-primary"
+                            invisible="import_done"
+                            confirm="¿Confirma la importación? Se crearán/actualizarán empleados en la empresa seleccionada."/>
+                    <button name="action_open_employees"
+                            string="Ver Empleados Importados"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="not import_done"/>
+                    <button name="action_close"
+                            string="Cerrar"
+                            type="object"
+                            class="btn-secondary"/>
+                </footer>
+
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mx_jandea_employee_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Empleados (TEVA)</field>
+        <field name="res_model">mx.jandea.employee.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_mx_jandea_employee_import_wizard_form"/>
+    </record>
+
+</odoo>

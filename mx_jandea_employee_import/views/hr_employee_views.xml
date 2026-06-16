@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Herencia del formulario nativo de hr.employee.
+        Solo se agregan tabs para los campos custom MX (RFC, CURP, NSS, multi-empresa).
+        Los campos nativos (puesto, departamento, salario, domicilio, fecha nacimiento,
+        género, estado civil, etc.) ya existen en el formulario nativo de Odoo.
+    -->
+    <record id="view_hr_employee_form_jandea_mx" model="ir.ui.view">
+        <field name="name">hr.employee.form.jandea.mx</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+
+            <xpath expr="//notebook" position="inside">
+
+                <!-- ─── RFC / CURP / NSS ──────────────────────────────────── -->
+                <page string="Datos Fiscales MX" name="datos_fiscales_mx"
+                      groups="hr.group_hr_user">
+                    <group>
+                        <group string="Identificación Fiscal">
+                            <field name="mx_rfc" string="RFC"/>
+                            <field name="mx_curp" string="CURP"/>
+                            <field name="nss" string="NSS (IMSS)"/>
+                        </group>
+                        <group string="Validación RFC">
+                            <field name="rfc_validated_format" readonly="1"/>
+                        </group>
+                    </group>
+                    <div style="margin-top: 12px; display:flex; gap:8px;">
+                        <button name="action_validate_rfc_format"
+                                string="✓ Validar Formato RFC"
+                                type="object"
+                                class="btn btn-secondary btn-sm"/>
+                    </div>
+                    <div class="alert alert-info mt-2" role="alert">
+                        <i class="fa fa-info-circle"/>
+                        El campo <b>NSS</b> también se guarda en el campo nativo
+                        <b>Número de Seguridad Social</b> (ssnid) del empleado.
+                    </div>
+                </page>
+
+                <!-- ─── Multi-Empresa ─────────────────────────────────────── -->
+                <page string="Multi-Empresa" name="multicompany_mx"
+                      groups="hr.group_hr_user">
+                    <group>
+                        <field name="is_multicompany_employee"
+                               readonly="1"
+                               string="¿Empleado en múltiples empresas?"/>
+                    </group>
+                    <field name="related_employee_ids"
+                           widget="many2many_tags"
+                           string="Este mismo empleado en otras empresas:"/>
+                </page>
+
+            </xpath>
+        </field>
+    </record>
+
+    <!-- List view: columnas adicionales opcionales -->
+    <record id="view_hr_employee_list_jandea_mx" model="ir.ui.view">
+        <field name="name">hr.employee.list.jandea.mx</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="mx_rfc"
+                       string="RFC"
+                       optional="show"
+                       groups="hr.group_hr_user"/>
+                <field name="nss"
+                       string="NSS"
+                       optional="hide"
+                       groups="hr.group_hr_user"/>
+                <field name="rfc_validated_format"
+                       optional="show"
+                       string="RFC ✓"
+                       groups="hr.group_hr_user"/>
+                <field name="is_multicompany_employee"
+                       optional="hide"
+                       string="Multi-Emp"
+                       groups="hr.group_hr_user"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
