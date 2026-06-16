@@ -295,11 +295,11 @@ class EmployeeImportWizard(models.TransientModel):
 
             # Preparar vals
             try:
-                vals = self._build_employee_vals(row, rfc, rfc_format_ok)
+                vals_create, vals_write = self._build_employee_vals(row, rfc, rfc_format_ok)
             except Exception as e:
                 results.append({
                     'row': row_idx, 'name': full_name, 'rfc': rfc,
-                    'status': 'error', 'message': str(e),
+                    'status': 'error', 'message': repr(e),
                     'rfc_format_ok': rfc_format_ok,
                     'checkid_selected': False,
                 })
@@ -309,17 +309,23 @@ class EmployeeImportWizard(models.TransientModel):
             # Crear o actualizar
             try:
                 if existing and self.update_existing:
-                    existing.sudo().write(vals)
+                    # Para update: combinar todo en un solo write
+                    all_vals = {**vals_create, **vals_write}
+                    existing.sudo().write(all_vals)
                     emp = existing
                     action = 'updated'
                     updated += 1
                 else:
+                    # Create con campos mínimos
                     emp = (
                         self.env['hr.employee']
                         .sudo()
                         .with_company(self.company_id)
-                        .create(vals)
+                        .create(vals_create)
                     )
+                    # Write post-create con campos de versión y custom MX
+                    if vals_write:
+                        emp.sudo().write(vals_write)
                     action = 'created'
                     created += 1
 
@@ -387,74 +393,76 @@ class EmployeeImportWizard(models.TransientModel):
     # Construcción de vals → campos nativos Odoo 17
     # ──────────────────────────────────────────────────────────────────────────
     def _build_employee_vals(self, row, rfc, rfc_format_ok):
-        nombre = _val(row, 'nombre')
-        ap_pat = _val(row, 'apellido_pat')
-        ap_mat = _val(row, 'apellido_mat')
-        full_name = f'{ap_pat} {ap_mat} {nombre}'.strip()
+        """
+        Retorna (vals_create, vals_write):
+          - vals_create: solo campos seguros para el create() inicial
+          - vals_write:  campos de hr.version y opcionales, se escriben post-create
+        Esto evita el error 'str object is not callable' de Odoo 19 al mezclar
+        campos _inherits en un solo create().
+        """
+        nombre    = _val(row, 'nombre')
+        ap_pat    = _val(row, 'apellido_pat')
+        ap_mat    = _val(row, 'apellido_mat')
+        full_name = ' '.join(filter(None, [ap_pat, ap_mat, nombre]))
 
-        vals = {
-            'name': full_name,
+        # ── vals_create: mínimo indispensable ─────────────────────────────
+        vals_create = {
+            'name':       full_name,
             'company_id': self.company_id.id,
         }
 
-        # Campos fiscales MX (custom)
+        correo = _val(row, 'correo')
+        if correo:
+            vals_create['work_email'] = correo
+
+        # ── vals_write: campos custom MX + campos hr.version ──────────────
+        vals_write = {}
+
         curp = _val(row, 'curp').upper().replace(' ', '')
         if rfc:
-            vals['mx_rfc'] = rfc
-            vals['rfc_validated_format'] = rfc_format_ok
+            vals_write['mx_rfc']              = rfc
+            vals_write['rfc_validated_format'] = rfc_format_ok
         if curp:
-            vals['mx_curp'] = curp
-            vals['identification_id'] = curp
-            # l10n_mx_edi_curp es el campo que usa mx_jandea_checkid para la búsqueda
-            # Solo se escribe si el campo existe (depende de la localización MX instalada)
+            vals_write['mx_curp']          = curp
+            vals_write['identification_id'] = curp
             emp_model = self.env['hr.employee']
             if 'l10n_mx_edi_curp' in emp_model._fields:
-                vals['l10n_mx_edi_curp'] = curp
+                vals_write['l10n_mx_edi_curp'] = curp
 
         nss_raw = _val(row, 'nss')
         if nss_raw:
-            vals['nss'] = nss_raw
-            vals['ssnid'] = nss_raw
+            vals_write['nss']   = nss_raw
+            vals_write['ssnid'] = nss_raw
 
-        # Correo
-        correo = _val(row, 'correo')
-        if correo:
-            vals['work_email'] = correo
-
-        # Género: campo eliminado en Odoo 19 — se omite
-
-        # Estado civil
         marital = MARITAL_MAP.get(_val(row, 'estado_civil').upper())
         if marital:
-            vals['marital'] = marital
+            vals_write['marital'] = marital
 
-        # Fecha de nacimiento
         fnac = _date_val(row, 'fecha_nac')
         if fnac:
-            vals['birthday'] = fnac
+            vals_write['birthday'] = fnac
 
-        # Domicilio privado
-        calle = _val(row, 'calle')
-        num_ext = _val(row, 'num_ext')
+        calle  = _val(row, 'calle')
+        numext = _val(row, 'num_ext')
         colonia = _val(row, 'colonia')
-        private_street = ' '.join(filter(None, [calle, num_ext]))
+        street  = ' '.join(filter(None, [calle, numext]))
         if colonia:
-            private_street = f'{private_street}, {colonia}' if private_street else colonia
-        if private_street:
-            vals['private_street'] = private_street
+            street = (street + ', ' + colonia).strip(', ')
+        if street:
+            vals_write['private_street'] = street
 
         ciudad = _val(row, 'municipio')
         if ciudad:
-            vals['private_city'] = ciudad
+            vals_write['private_city'] = ciudad
 
         cp = _val(row, 'cp')
         if cp:
-            vals['private_zip'] = cp
+            vals_write['private_zip'] = cp
 
         estado_raw = _val(row, 'estado').upper()
         if estado_raw:
-            state_name = STATE_ABBR.get(estado_raw, estado_raw)
-            mx_country = self.env.ref('base.mx', raise_if_not_found=False)
+            state_name  = STATE_ABBR.get(estado_raw, estado_raw)
+            mx_country  = self.env.ref('base.mx', raise_if_not_found=False)
             if mx_country:
                 state = self.env['res.country.state'].sudo().search([
                     ('country_id', '=', mx_country.id),
@@ -463,25 +471,22 @@ class EmployeeImportWizard(models.TransientModel):
                     ('code', '=ilike', estado_raw),
                 ], limit=1)
                 if state:
-                    vals['private_state_id'] = state.id
-                    vals['private_country_id'] = mx_country.id
+                    vals_write['private_state_id']  = state.id
+                    vals_write['private_country_id'] = mx_country.id
 
-        # Fecha ingreso → contract_date_start
         f_ingreso = _date_val(row, 'f_ingreso')
         if f_ingreso:
-            vals['contract_date_start'] = f_ingreso
+            vals_write['contract_date_start'] = f_ingreso
 
-        # Puesto → job_title
         puesto = _val(row, 'desc_puesto') or _val(row, 'puesto')
         if puesto:
-            vals['job_title'] = puesto
+            vals_write['job_title'] = puesto
 
-        # Salario → wage
         sueldo = _float_val(row, 'sueldo_mensual')
         if sueldo:
-            vals['wage'] = sueldo
+            vals_write['wage'] = sueldo
 
-        return vals
+        return vals_create, vals_write
 
     # ──────────────────────────────────────────────────────────────────────────
     # Selección masiva de CheckId
