@@ -405,6 +405,11 @@ class EmployeeImportWizard(models.TransientModel):
         if curp:
             vals['mx_curp'] = curp
             vals['identification_id'] = curp
+            # l10n_mx_edi_curp es el campo que usa mx_jandea_checkid para la búsqueda
+            # Solo se escribe si el campo existe (depende de la localización MX instalada)
+            emp_model = self.env['hr.employee']
+            if 'l10n_mx_edi_curp' in emp_model._fields:
+                vals['l10n_mx_edi_curp'] = curp
 
         nss_raw = _val(row, 'nss')
         if nss_raw:
@@ -514,7 +519,9 @@ class EmployeeImportWizard(models.TransientModel):
     def action_checkid_validate_selected(self):
         """
         Valida con CheckId SOLO los registros marcados con checkid_selected=True.
-        Actualiza checkid_status en cada línea de resultado.
+
+        Usa _get_termino_busqueda() del módulo mx_jandea_checkid (que busca en
+        ssnid y l10n_mx_edi_curp), fallback a mx_rfc/mx_curp de este módulo.
         """
         self.ensure_one()
 
@@ -531,14 +538,21 @@ class EmployeeImportWizard(models.TransientModel):
         ok = errors = 0
         for line in lines_selected:
             emp = line.employee_id
-            # Determinar término: CURP preferente, luego RFC
+
+            # Usar _get_termino_busqueda() del checkid si existe (busca ssnid / l10n_mx_edi_curp)
+            # Fallback: mx_curp → mx_rfc (campos propios de este módulo)
             termino = ''
-            curp = getattr(emp, 'mx_curp', '') or ''
-            rfc = getattr(emp, 'mx_rfc', '') or ''
-            if curp:
-                termino = curp.strip().upper()
-            elif rfc:
-                termino = rfc.strip().upper()
+            if hasattr(emp, '_get_termino_busqueda'):
+                try:
+                    termino = emp._get_termino_busqueda() or ''
+                except Exception:
+                    pass
+
+            if not termino:
+                # Fallback a nuestros campos custom
+                curp = (getattr(emp, 'mx_curp', '') or '').strip().upper()
+                rfc  = (getattr(emp, 'mx_rfc',  '') or '').strip().upper()
+                termino = curp or rfc
 
             if not termino:
                 line.write({
@@ -550,8 +564,8 @@ class EmployeeImportWizard(models.TransientModel):
 
             try:
                 emp._ejecutar_consulta_checkid(termino)
-                # Reflejar estado real del empleado en la línea
-                estado = getattr(emp, 'checkid_estado_consulta', 'ok')
+                # Leer estado que el checkid escribió en el empleado
+                estado = getattr(emp, 'checkid_estado_consulta', 'ok') or 'ok'
                 if estado == 'advertencia':
                     line.write({
                         'checkid_status': 'warning',
