@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Falta Injustificada -->
+    <record id="leave_type_falta_inj" model="hr.leave.type">
+        <field name="name">Falta Injustificada</field>
+        <field name="mx_code">FALT_INJ</field>
+        <field name="mx_deduction_type">full_day</field>
+        <field name="mx_requires_hours" eval="False"/>
+        <field name="mx_sync_attendance" eval="True"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">no_validation</field>
+        <field name="color">1</field>
+    </record>
+
+    <!-- Falta Justificada -->
+    <record id="leave_type_falta_jus" model="hr.leave.type">
+        <field name="name">Falta Justificada</field>
+        <field name="mx_code">FALT_JUS</field>
+        <field name="mx_deduction_type">none</field>
+        <field name="mx_requires_hours" eval="False"/>
+        <field name="mx_sync_attendance" eval="False"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">manager</field>
+        <field name="color">4</field>
+    </record>
+
+    <!-- Retardo / Llegada tarde -->
+    <record id="leave_type_retardo" model="hr.leave.type">
+        <field name="name">Retardo / Llegada tarde</field>
+        <field name="mx_code">RETARDO</field>
+        <field name="mx_deduction_type">proportional</field>
+        <field name="mx_requires_hours" eval="True"/>
+        <field name="mx_sync_attendance" eval="False"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">no_validation</field>
+        <field name="color">3</field>
+    </record>
+
+    <!-- Salida Anticipada -->
+    <record id="leave_type_salida_ant" model="hr.leave.type">
+        <field name="name">Salida Anticipada</field>
+        <field name="mx_code">SAL_ANT</field>
+        <field name="mx_deduction_type">proportional</field>
+        <field name="mx_requires_hours" eval="True"/>
+        <field name="mx_sync_attendance" eval="False"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">no_validation</field>
+        <field name="color">6</field>
+    </record>
+
+    <!-- Permiso sin goce de sueldo -->
+    <record id="leave_type_permiso" model="hr.leave.type">
+        <field name="name">Permiso sin goce de sueldo</field>
+        <field name="mx_code">PERMISO</field>
+        <field name="mx_deduction_type">full_day</field>
+        <field name="mx_requires_hours" eval="False"/>
+        <field name="mx_sync_attendance" eval="False"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">manager</field>
+        <field name="color">2</field>
+    </record>
+
+    <!-- Permiso con goce de sueldo -->
+    <record id="leave_type_permiso_goc" model="hr.leave.type">
+        <field name="name">Permiso con goce de sueldo</field>
+        <field name="mx_code">PERMISO_GOC</field>
+        <field name="mx_deduction_type">none</field>
+        <field name="mx_requires_hours" eval="False"/>
+        <field name="mx_sync_attendance" eval="False"/>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">manager</field>
+        <field name="color">10</field>
+    </record>
+
+</odoo>

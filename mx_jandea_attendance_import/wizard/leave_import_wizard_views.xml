@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mx_jandea_leave_import_wizard_form" model="ir.ui.view">
+        <field name="name">mx.jandea.leave.import.wizard.form</field>
+        <field name="model">mx.jandea.leave.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Importación de Faltas">
+                <sheet>
+
+                    <!-- ── PASO 1: Subir archivo ─────────────────────────── -->
+                    <div invisible="state != 'upload'">
+                        <div class="alert alert-info" role="alert">
+                            <h5><i class="fa fa-upload"/> Carga de faltas masiva</h5>
+                            <p>
+                                Sube un archivo Excel (.xlsx) o CSV con las siguientes columnas:<br/>
+                                <b>rfc</b> · <b>tipo_falta</b> · <b>fecha_inicio</b> · <b>fecha_fin</b> · horas (opcional) · motivo (opcional)
+                            </p>
+                            <p>
+                                Tipos disponibles: <b>FALT_INJ</b>, <b>FALT_JUS</b>, <b>RETARDO</b>,
+                                <b>SAL_ANT</b>, <b>PERMISO</b>, <b>PERMISO_GOC</b>
+                            </p>
+                        </div>
+                        <group>
+                            <group string="Archivo">
+                                <field name="file_data"
+                                       widget="binary"
+                                       filename="file_name"
+                                       string="Archivo Excel / CSV"
+                                       required="1"/>
+                                <field name="file_name" invisible="1"/>
+                            </group>
+                            <group string="Opciones">
+                                <field name="company_id" required="1"/>
+                                <field name="mode" widget="radio"/>
+                            </group>
+                        </group>
+                    </div>
+
+                    <!-- ── PASO 2: Vista previa ──────────────────────────── -->
+                    <div invisible="state != 'preview'">
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fa fa-eye"/>
+                            Revisa y corrige los registros antes de confirmar.
+                            Las filas en <span class="text-danger"><b>rojo</b></span> tienen errores y no se importarán.
+                        </div>
+
+                        <field name="line_ids">
+                            <list editable="bottom"
+                                  decoration-danger="status == 'error'"
+                                  decoration-success="status == 'imported'"
+                                  decoration-muted="status == 'ok'">
+                                <field name="row_number" string="Fila" readonly="1"/>
+                                <field name="rfc" string="RFC"/>
+                                <field name="employee_id" string="Empleado"/>
+                                <field name="leave_type_id" string="Tipo de falta"/>
+                                <field name="fecha_inicio" string="Inicio"/>
+                                <field name="fecha_fin" string="Fin"/>
+                                <field name="horas" string="Horas" optional="show"/>
+                                <field name="motivo" string="Motivo" optional="show"/>
+                                <field name="status"
+                                       widget="badge"
+                                       decoration-success="status == 'imported'"
+                                       decoration-danger="status == 'error'"
+                                       string="Estado"
+                                       readonly="1"/>
+                                <field name="message" string="Detalle" readonly="1"/>
+                            </list>
+                        </field>
+                    </div>
+
+                    <!-- ── PASO 3: Resultado ─────────────────────────────── -->
+                    <div invisible="state != 'done'">
+                        <div class="alert alert-success" role="alert">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h3 class="text-success">
+                                        <field name="count_ok" readonly="1"/>
+                                    </h3>
+                                    <span>Registradas</span>
+                                </div>
+                                <div class="col-4">
+                                    <h3 class="text-danger">
+                                        <field name="count_error" readonly="1"/>
+                                    </h3>
+                                    <span>Errores</span>
+                                </div>
+                                <div class="col-4">
+                                    <h3 class="text-warning">
+                                        <field name="count_warning" readonly="1"/>
+                                    </h3>
+                                    <span>Advertencias</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <field name="line_ids" readonly="1">
+                            <list decoration-danger="status == 'error'"
+                                  decoration-success="status == 'imported'">
+                                <field name="row_number" string="Fila"/>
+                                <field name="employee_id" string="Empleado"/>
+                                <field name="leave_type_id" string="Tipo"/>
+                                <field name="fecha_inicio" string="Inicio"/>
+                                <field name="fecha_fin" string="Fin"/>
+                                <field name="status"
+                                       widget="badge"
+                                       decoration-success="status == 'imported'"
+                                       decoration-danger="status == 'error'"
+                                       string="Estado"/>
+                                <field name="message" string="Detalle"/>
+                                <field name="leave_id" string="Falta" optional="show"/>
+                            </list>
+                        </field>
+                    </div>
+
+                    <!-- Campo de estado (invisible, para lógica de vista) -->
+                    <field name="state" invisible="1"/>
+
+                </sheet>
+
+                <footer>
+                    <!-- Paso 1 -->
+                    <button name="action_preview"
+                            string="Vista previa →"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'upload'"/>
+
+                    <!-- Paso 2 -->
+                    <button name="action_confirm"
+                            string="✓ Confirmar importación"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'preview'"
+                            confirm="¿Confirmas la importación de las faltas válidas?"/>
+                    <button name="action_back"
+                            string="← Volver"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'preview'"/>
+
+                    <!-- Paso 3 -->
+                    <button name="action_open_leaves"
+                            string="Ver faltas registradas"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'done'"/>
+
+                    <button name="action_close"
+                            string="Cerrar"
+                            type="object"
+                            class="btn-secondary"/>
+                </footer>
+
+            </form>
+        </field>
+    </record>
+
+    <record id="action_mx_jandea_leave_import_wizard" model="ir.actions.act_window">
+        <field name="name">Importar Faltas</field>
+        <field name="res_model">mx.jandea.leave.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_mx_jandea_leave_import_wizard_form"/>
+    </record>
+
+</odoo>

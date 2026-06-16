@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Importar Faltas: bajo el menú de Empleados -->
+    <menuitem
+        id="menu_mx_jandea_import_faltas"
+        name="Importar Faltas"
+        parent="hr.menu_hr_root"
+        action="action_mx_jandea_leave_import_wizard"
+        sequence="100"
+        groups="hr.group_hr_manager"/>
+
+    <!-- Reporte de Faltas: bajo Reportes de Empleados -->
+    <menuitem
+        id="menu_mx_jandea_faltas_report"
+        name="Reporte de Faltas"
+        parent="hr_holidays.menu_open_view_leaves_waiting_my"
+        action="action_mx_jandea_faltas_report"
+        sequence="20"
+        groups="hr.group_hr_user"/>
+
+</odoo>

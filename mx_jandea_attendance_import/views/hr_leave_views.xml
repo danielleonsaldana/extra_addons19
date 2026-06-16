@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Herencia del form de hr.leave: agregar campos MX -->
+    <record id="view_hr_leave_form_mx" model="ir.ui.view">
+        <field name="name">hr.leave.form.mx.jandea</field>
+        <field name="model">hr.leave</field>
+        <field name="inherit_id" ref="hr_holidays.hr_leave_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="mx_motivo" placeholder="Motivo de la ausencia..."/>
+                <field name="mx_horas_parciales"
+                       invisible="holiday_status_id.mx_requires_hours == False"
+                       string="Horas de ausencia"/>
+                <field name="mx_origen" readonly="1" string="Origen"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Herencia del form de hr.leave.type: agregar campos MX -->
+    <record id="view_hr_leave_type_form_mx" model="ir.ui.view">
+        <field name="name">hr.leave.type.form.mx.jandea</field>
+        <field name="model">hr.leave.type</field>
+        <field name="inherit_id" ref="hr_holidays.hr_leave_type_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Configuración MX" col="2">
+                    <field name="mx_code" string="Código de importación"/>
+                    <field name="mx_deduction_type" string="Descuento en nómina"/>
+                    <field name="mx_requires_hours" string="Requiere horas"/>
+                    <field name="mx_sync_attendance" string="Sincronizar asistencias"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista lista de faltas con columnas MX -->
+    <record id="view_hr_leave_list_mx" model="ir.ui.view">
+        <field name="name">hr.leave.list.mx.jandea</field>
+        <field name="model">hr.leave</field>
+        <field name="inherit_id" ref="hr_holidays.hr_leave_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="mx_motivo" optional="show" string="Motivo"/>
+                <field name="mx_horas_parciales" optional="hide" string="Horas"/>
+                <field name="mx_origen" optional="show" string="Origen"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Acción: Reporte de Faltas (vista lista filtrada a tipos MX) -->
+    <record id="action_mx_jandea_faltas_report" model="ir.actions.act_window">
+        <field name="name">Reporte de Faltas</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">list,form,graph,pivot</field>
+        <field name="domain">[('holiday_status_id.mx_code', '!=', False)]</field>
+        <field name="context">{'search_default_active_id': 1}</field>
+    </record>
+
+</odoo>
