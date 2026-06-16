@@ -519,9 +519,8 @@ class EmployeeImportWizard(models.TransientModel):
     def action_checkid_validate_selected(self):
         """
         Valida con CheckId SOLO los registros marcados con checkid_selected=True.
-
-        Usa _get_termino_busqueda() del módulo mx_jandea_checkid (que busca en
-        ssnid y l10n_mx_edi_curp), fallback a mx_rfc/mx_curp de este módulo.
+        Llama directamente a action_checkid_consultar() del empleado (método
+        nativo de mx_jandea_checkid) para evitar problemas con el término.
         """
         self.ensure_one()
 
@@ -539,49 +538,57 @@ class EmployeeImportWizard(models.TransientModel):
         for line in lines_selected:
             emp = line.employee_id
 
-            # Usar _get_termino_busqueda() del checkid si existe (busca ssnid / l10n_mx_edi_curp)
-            # Fallback: mx_curp → mx_rfc (campos propios de este módulo)
+            # ── Obtener término de búsqueda ────────────────────────────────
+            # Prioridad: _get_termino_busqueda del checkid (ssnid/l10n_mx_edi_curp)
+            # Fallback:  mx_rfc / mx_curp (campos de este módulo)
             termino = ''
-            if hasattr(emp, '_get_termino_busqueda'):
-                try:
-                    termino = emp._get_termino_busqueda() or ''
-                except Exception:
-                    pass
+            try:
+                if hasattr(emp, '_get_termino_busqueda'):
+                    termino = (emp._get_termino_busqueda() or '').strip()
+            except Exception as te:
+                _logger.warning('_get_termino_busqueda error: %s', te)
 
             if not termino:
-                # Fallback a nuestros campos custom
-                curp = (getattr(emp, 'mx_curp', '') or '').strip().upper()
-                rfc  = (getattr(emp, 'mx_rfc',  '') or '').strip().upper()
-                termino = curp or rfc
+                for fname in ('mx_curp', 'mx_rfc'):
+                    val = emp._fields.get(fname) and emp[fname]
+                    if val and isinstance(val, str) and val.strip():
+                        termino = val.strip().upper()
+                        break
 
             if not termino:
                 line.write({
                     'checkid_status': 'error',
-                    'checkid_message': _('Sin RFC ni CURP para consultar.'),
+                    'checkid_message': 'Sin RFC ni CURP registrado en el empleado.',
                 })
                 errors += 1
                 continue
 
+            # ── Ejecutar consulta ──────────────────────────────────────────
             try:
-                emp._ejecutar_consulta_checkid(termino)
-                # Leer estado que el checkid escribió en el empleado
-                estado = getattr(emp, 'checkid_estado_consulta', 'ok') or 'ok'
+                emp.sudo()._ejecutar_consulta_checkid(termino)
+                emp.invalidate_recordcache(['checkid_estado_consulta'])
+                estado = emp.sudo().checkid_estado_consulta or 'ok'
                 if estado == 'advertencia':
-                    line.write({
-                        'checkid_status': 'warning',
-                        'checkid_message': _('⚠️ Problema 69/69B detectado.'),
-                    })
+                    msg = 'Advertencia: problema 69/69B detectado.'
+                    chk_status = 'warning'
                 else:
-                    line.write({
-                        'checkid_status': 'ok',
-                        'checkid_message': _('Consulta exitosa.'),
-                    })
+                    msg = 'Consulta exitosa.'
+                    chk_status = 'ok'
+                line.write({'checkid_status': chk_status, 'checkid_message': msg})
                 ok += 1
             except Exception as e:
-                _logger.warning('CheckId error para %s: %s', emp.name, e)
+                # Capturar el mensaje de forma segura sin re-llamar a __str__
+                try:
+                    import traceback
+                    err_msg = traceback.format_exc()
+                    _logger.error('CheckId traceback completo:\n%s', err_msg)
+                    err_msg = repr(e)
+                except Exception:
+                    err_msg = 'Error desconocido en CheckId'
+                _logger.warning('CheckId error para %s: %s', emp.name, err_msg)
                 line.write({
                     'checkid_status': 'error',
-                    'checkid_message': str(e)[:200],
+                    'checkid_message': err_msg[:200],
                 })
                 errors += 1
 
