@@ -81,10 +81,6 @@ COL = {
     'f_baja':            51,
 }
 
-GENDER_MAP = {
-    'M': 'male', 'H': 'male', 'MASCULINO': 'male',
-    'F': 'female', 'FEMENINO': 'female',
-}
 MARITAL_MAP = {
     'SOLTERO': 'single',  'SOLTERA': 'single',  'S': 'single',
     'CASADO': 'married',  'CASADA': 'married',  'C': 'married',
@@ -420,10 +416,7 @@ class EmployeeImportWizard(models.TransientModel):
         if correo:
             vals['work_email'] = correo
 
-        # Género
-        genero = GENDER_MAP.get(_val(row, 'genero').upper())
-        if genero:
-            vals['gender'] = genero
+        # Género: campo eliminado en Odoo 19 — se omite
 
         # Estado civil
         marital = MARITAL_MAP.get(_val(row, 'estado_civil').upper())
