@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Tipo de entrada de nómina "Préstamo".
+        - available_in_attachments = True  -> aparece en el diálogo
+          "Nuevo ajuste salarial" (campo Tipo / other_input_type_id).
+        - Sin struct_ids -> disponible para todas las estructuras de nómina.
+        - code = PRESTAMO -> lo lee la regla salarial (inputs.PRESTAMO.amount).
+    -->
+    <record id="input_type_prestamo" model="hr.payslip.input.type">
+        <field name="name">Préstamo</field>
+        <field name="code">PRESTAMO</field>
+        <field name="available_in_attachments" eval="True"/>
+    </record>
+
+</odoo>
