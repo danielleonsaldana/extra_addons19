@@ -24,16 +24,10 @@
     </record>
 
     <!--
-        Menú "Préstamos" dentro de la app de Nómina.
-        Si prefieres ubicarlo en otro submenú (p. ej. junto a "Ajustes
-        salariales"), solo cambia el parent.
+        El menú "Préstamos" NO se define aquí. Se crea en el post_init_hook
+        (ver hooks.py) buscando dinámicamente el menú nativo de Ajustes
+        Salariales, para no depender de un xmlid de menú que cambia entre
+        versiones/ediciones de Odoo.
     -->
-    <menuitem
-        id="menu_mx_jandea_prestamos"
-        name="Préstamos"
-        parent="hr_payroll.menu_hr_payroll_root"
-        action="action_mx_jandea_prestamos"
-        sequence="90"
-        groups="hr_payroll.group_hr_payroll_user"/>
 
 </odoo>

@@ -78,3 +78,64 @@ def post_init_attach_rule(env):
         'mx_jandea_prestamos: regla "%s" creada en %s estructura(s) de nómina.',
         RULE_CODE, created,
     )
+
+    _create_menu(env)
+
+
+def _create_menu(env):
+    """Crea el menú "Préstamos" colgándolo del menú nativo de Ajustes
+    Salariales (hr.salary.attachment), sin depender de un xmlid de menú fijo.
+
+    Se registra en ir.model.data para que la desinstalación lo elimine.
+    """
+    # Si ya existe (reinstalación), no duplicar.
+    if env.ref('mx_jandea_prestamos.menu_mx_jandea_prestamos',
+               raise_if_not_found=False):
+        return
+
+    action = env.ref(
+        'mx_jandea_prestamos.action_mx_jandea_prestamos',
+        raise_if_not_found=False,
+    )
+    if not action:
+        _logger.warning('mx_jandea_prestamos: no se encontró la acción; '
+                        'no se creó el menú.')
+        return
+
+    # Buscar el menú nativo que abre los Ajustes Salariales y usar su padre,
+    # para que "Préstamos" aparezca al lado, dentro de Nómina.
+    parent = False
+    sa_actions = env['ir.actions.act_window'].search(
+        [('res_model', '=', 'hr.salary.attachment')]
+    )
+    if sa_actions:
+        refs = ['ir.actions.act_window,%d' % a.id for a in sa_actions]
+        native_menu = env['ir.ui.menu'].search(
+            [('action', 'in', refs)], limit=1
+        )
+        if native_menu:
+            parent = native_menu.parent_id
+
+    # Respaldo: raíz de RR.HH. (existe siempre).
+    if not parent:
+        parent = env.ref('hr.menu_hr_root', raise_if_not_found=False)
+
+    menu = env['ir.ui.menu'].create({
+        'name': 'Préstamos',
+        'parent_id': parent.id if parent else False,
+        'action': 'ir.actions.act_window,%d' % action.id,
+        'sequence': 90,
+    })
+
+    # Vincular al módulo para que la desinstalación limpie el menú.
+    env['ir.model.data'].create({
+        'name': 'menu_mx_jandea_prestamos',
+        'module': 'mx_jandea_prestamos',
+        'model': 'ir.ui.menu',
+        'res_id': menu.id,
+        'noupdate': True,
+    })
+    _logger.info(
+        'mx_jandea_prestamos: menú "Préstamos" creado bajo "%s".',
+        parent.name if parent else 'raíz',
+    )
