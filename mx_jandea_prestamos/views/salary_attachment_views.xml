@@ -10,8 +10,12 @@
         <field name="name">Préstamos</field>
         <field name="res_model">hr.salary.attachment</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('other_input_type_id', '=', %(input_type_prestamo)d)]</field>
-        <field name="context">{'default_other_input_type_id': %(input_type_prestamo)d}</field>
+        <field name="domain">[('other_input_type_id.code', '=', 'PRESTAMO')]</field>
+        <!--
+            El context con default_other_input_type_id NO se pone aquí porque
+            necesita el id real del tipo y la sustitución %(...)d no aplica a
+            este campo. Lo escribe el post_init_hook (ver hooks.py).
+        -->
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Registra un préstamo a un empleado</p>
             <p>

@@ -61,7 +61,7 @@ def post_init_attach_rule(env):
         )
         if exists:
             continue
-        Rule.create({
+        rule = Rule.create({
             'name': 'Préstamo a empleado',
             'code': RULE_CODE,
             'category_id': category.id,
@@ -71,6 +71,15 @@ def post_init_attach_rule(env):
             'condition_select': 'none',
             'amount_select': 'code',
             'amount_python_compute': python_code,
+        })
+        # Vincular la regla al módulo para que la desinstalación la elimine
+        # y no queden reglas huérfanas en las estructuras.
+        env['ir.model.data'].create({
+            'name': 'salary_rule_prestamo_struct_%d' % struct.id,
+            'module': 'mx_jandea_prestamos',
+            'model': 'hr.salary.rule',
+            'res_id': rule.id,
+            'noupdate': True,
         })
         created += 1
 
@@ -83,23 +92,34 @@ def post_init_attach_rule(env):
 
 
 def _create_menu(env):
-    """Crea el menú "Préstamos" colgándolo del menú nativo de Ajustes
-    Salariales (hr.salary.attachment), sin depender de un xmlid de menú fijo.
+    """Configura el context de la acción (concepto por default) y crea el menú
+    "Préstamos" colgándolo del menú nativo de Ajustes Salariales
+    (hr.salary.attachment), sin depender de un xmlid de menú fijo.
 
     Se registra en ir.model.data para que la desinstalación lo elimine.
     """
-    # Si ya existe (reinstalación), no duplicar.
-    if env.ref('mx_jandea_prestamos.menu_mx_jandea_prestamos',
-               raise_if_not_found=False):
-        return
-
     action = env.ref(
         'mx_jandea_prestamos.action_mx_jandea_prestamos',
         raise_if_not_found=False,
     )
     if not action:
         _logger.warning('mx_jandea_prestamos: no se encontró la acción; '
-                        'no se creó el menú.')
+                        'no se configuró el menú.')
+        return
+
+    # Asignar el concepto "Préstamo" por default al crear desde la acción.
+    # Se hace aquí (no en XML) porque el context necesita el id real del tipo.
+    input_type = env.ref(
+        'mx_jandea_prestamos.input_type_prestamo', raise_if_not_found=False
+    )
+    if input_type:
+        action.write({
+            'context': "{'default_other_input_type_id': %d}" % input_type.id,
+        })
+
+    # Si el menú ya existe (reinstalación), no duplicar.
+    if env.ref('mx_jandea_prestamos.menu_mx_jandea_prestamos',
+               raise_if_not_found=False):
         return
 
     # Buscar el menú nativo que abre los Ajustes Salariales y usar su padre,
