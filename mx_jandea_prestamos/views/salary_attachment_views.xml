@@ -12,10 +12,12 @@
         <field name="view_mode">list,form</field>
         <field name="domain">[('other_input_type_id.code', '=', 'PRESTAMO')]</field>
         <!--
-            El context con default_other_input_type_id NO se pone aquí porque
-            necesita el id real del tipo y la sustitución %(...)d no aplica a
-            este campo. Lo escribe el post_init_hook (ver hooks.py).
+            context se fija a {} aquí como defensa: cualquier carga (instalar o
+            actualizar) sobrescribe el valor previo. El default real con el id
+            del concepto lo escribe el post_init_hook (instalación) y el script
+            de migración post-migrate (actualización).
         -->
+        <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">Registra un préstamo a un empleado</p>
             <p>

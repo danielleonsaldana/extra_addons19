@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Préstamos a Empleados',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'summary': 'Registro y descuento automático de préstamos en nómina',
     'description': """
         Gestión de préstamos a empleados sobre el mecanismo nativo de
