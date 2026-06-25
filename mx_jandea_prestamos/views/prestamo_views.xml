@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_mx_jandea_prestamo_form" model="ir.ui.view">
+        <field name="name">mx.jandea.prestamo.form</field>
+        <field name="model">mx.jandea.prestamo</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirmar" string="Confirmar y generar calendario"
+                            type="object" class="btn-primary" invisible="state != 'borrador'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="borrador,confirmado,cerrado"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_ver_recibos" type="object" class="oe_stat_button"
+                                icon="fa-file-text-o" invisible="payslip_count == 0">
+                            <field name="payslip_count" widget="statinfo" string="Recibos"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id" readonly="state != 'borrador'"/>
+                            <field name="fecha_inicio" readonly="state != 'borrador'"/>
+                            <field name="periodicidad" readonly="state != 'borrador'"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group>
+                            <field name="monto_total" readonly="state != 'borrador'"/>
+                            <field name="monto_periodo" readonly="state != 'borrador'"/>
+                            <field name="num_periodos"/>
+                            <field name="descontado"/>
+                            <field name="restante"/>
+                            <field name="attachment_id" readonly="1" invisible="not attachment_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Calendario de pagos">
+                            <field name="linea_ids" readonly="1">
+                                <list create="false" delete="false" edit="false"
+                                      decoration-success="pagado == True" decoration-muted="pagado == False">
+                                    <field name="secuencia" string="#"/>
+                                    <field name="fecha"/>
+                                    <field name="monto"/>
+                                    <field name="saldo_restante"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="pagado" string="Pagado"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_mx_jandea_prestamo_list" model="ir.ui.view">
+        <field name="name">mx.jandea.prestamo.list</field>
+        <field name="model">mx.jandea.prestamo</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="periodicidad"/>
+                <field name="monto_total"/>
+                <field name="descontado"/>
+                <field name="restante"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'confirmado'" decoration-success="state == 'cerrado'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_mx_jandea_prestamo_search" model="ir.ui.view">
+        <field name="name">mx.jandea.prestamo.search</field>
+        <field name="model">mx.jandea.prestamo</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <field name="name"/>
+                <filter name="borrador" string="Borrador" domain="[('state', '=', 'borrador')]"/>
+                <filter name="confirmado" string="En curso" domain="[('state', '=', 'confirmado')]"/>
+                <filter name="cerrado" string="Cerrados" domain="[('state', '=', 'cerrado')]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_employee" string="Empleado" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!--
+        Acción "Préstamos": apunta al modelo propio de préstamos.
+        Conserva el mismo id que ya usa el menú creado por el hook, de modo
+        que el menú existente queda reapuntado a este modelo en la
+        actualización. domain y context se fijan vacíos para sobrescribir
+        cualquier valor previo.
+    -->
+    <record id="action_mx_jandea_prestamos" model="ir.actions.act_window">
+        <field name="name">Préstamos</field>
+        <field name="res_model">mx.jandea.prestamo</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[]</field>
+        <field name="context">{}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Registra un préstamo a un empleado</p>
+            <p>
+                Captura el monto total y el monto por período. Al confirmar,
+                se genera el calendario de pagos y se crea automáticamente el
+                ajuste salarial que descuenta en cada nómina hasta saldarlo.
+            </p>
+        </field>
+    </record>
+
+</odoo>

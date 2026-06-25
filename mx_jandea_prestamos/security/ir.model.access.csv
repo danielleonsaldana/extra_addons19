@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mx_jandea_prestamo_user,mx.jandea.prestamo.user,model_mx_jandea_prestamo,hr.group_hr_user,1,1,1,0
+access_mx_jandea_prestamo_manager,mx.jandea.prestamo.manager,model_mx_jandea_prestamo,hr.group_hr_manager,1,1,1,1
+access_mx_jandea_prestamo_linea_user,mx.jandea.prestamo.linea.user,model_mx_jandea_prestamo_linea,hr.group_hr_user,1,1,1,1
+access_mx_jandea_prestamo_linea_manager,mx.jandea.prestamo.linea.manager,model_mx_jandea_prestamo_linea,hr.group_hr_manager,1,1,1,1

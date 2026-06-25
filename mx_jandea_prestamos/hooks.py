@@ -107,16 +107,6 @@ def _create_menu(env):
                         'no se configuró el menú.')
         return
 
-    # Asignar el concepto "Préstamo" por default al crear desde la acción.
-    # Se hace aquí (no en XML) porque el context necesita el id real del tipo.
-    input_type = env.ref(
-        'mx_jandea_prestamos.input_type_prestamo', raise_if_not_found=False
-    )
-    if input_type:
-        action.write({
-            'context': "{'default_other_input_type_id': %d}" % input_type.id,
-        })
-
     # Si el menú ya existe (reinstalación), no duplicar.
     if env.ref('mx_jandea_prestamos.menu_mx_jandea_prestamos',
                raise_if_not_found=False):

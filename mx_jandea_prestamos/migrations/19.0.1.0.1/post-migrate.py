@@ -20,7 +20,7 @@ def migrate(cr, version):
         'mx_jandea_prestamos.input_type_prestamo',
         raise_if_not_found=False,
     )
-    if action and input_type:
+    if action and input_type and action.res_model == 'hr.salary.attachment':
         action.write({
             'context': "{'default_other_input_type_id': %d}" % input_type.id,
         })
