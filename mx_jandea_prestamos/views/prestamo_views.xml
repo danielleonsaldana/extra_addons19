@@ -86,10 +86,9 @@
                 <filter name="borrador" string="Borrador" domain="[('state', '=', 'borrador')]"/>
                 <filter name="confirmado" string="En curso" domain="[('state', '=', 'confirmado')]"/>
                 <filter name="cerrado" string="Cerrados" domain="[('state', '=', 'cerrado')]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="group_employee" string="Empleado" context="{'group_by': 'employee_id'}"/>
-                    <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
-                </group>
+                <separator/>
+                <filter name="group_employee" string="Empleado" context="{'group_by': 'employee_id'}"/>
+                <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
             </search>
         </field>
     </record>
