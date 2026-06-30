@@ -7,8 +7,8 @@
             <form>
                 <group>
                     <field name="employee_id" readonly="1"/>
-                    <field name="employee_gender" invisible="1"/>
                     <field name="doc_type" widget="radio"/>
+                    <field name="genero"/>
                     <field name="template_id"/>
                 </group>
                 <group string="Datos a insertar en el documento" col="2">

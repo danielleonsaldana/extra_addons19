@@ -25,9 +25,12 @@ class HrDocumentPrintWizard(models.TransientModel):
     template_id = fields.Many2one(
         'hr.document.template', string='Plantilla', required=True,
         domain="[('doc_type', '=', doc_type), "
-               "'|', ('gender', '=', 'unisex'), ('gender', '=', employee_gender)]",
+               "'|', ('gender', '=', 'unisex'), ('gender', '=', genero)]",
     )
-    employee_gender = fields.Selection(related='employee_id.gender', string='Género del empleado')
+    genero = fields.Selection([
+        ('hombre', 'Hombre'),
+        ('mujer', 'Mujer'),
+    ], string='Género (para filtrar plantilla)')
 
     # --- Campos editables que se inyectan en la plantilla como {{ }} ---
     nombre_trabajador = fields.Char('Nombre completo')
@@ -56,7 +59,6 @@ class HrDocumentPrintWizard(models.TransientModel):
             if not w.employee_id:
                 continue
             emp = w.employee_id
-            version = emp.version_id
             w.nombre_trabajador = (emp.name or '').upper()
             w.rfc = getattr(emp, 'l10n_mx_rfc', False) or ''
             w.curp = getattr(emp, 'l10n_mx_curp', False) or ''
@@ -65,13 +67,13 @@ class HrDocumentPrintWizard(models.TransientModel):
             w.domicilio = ' '.join(filter(None, [
                 emp.private_street, emp.private_city, emp.private_state_id.name,
             ])) or ''
-            date_start = version.date_start if version else False
+            date_start = emp.date_start
             if date_start:
                 w.dia = str(date_start.day)
                 w.mes = MESES_ES[date_start.month - 1]
                 w.anio = str(date_start.year)
                 w.fecha_firma = date_start.strftime('%d de %B de %Y')
-            wage = version.wage if version else 0.0
+            wage = emp.wage or 0.0
             if wage:
                 w.salario_numero = '%.2f' % (wage / 30.0)
 
