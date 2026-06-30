@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<odoo>
+    <record id="doc_template_cidt_burdina_indet_hombre" model="hr.document.template">
+        <field name="name">CIDT Indeterminado - Burdina (Hombre)</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">hombre</field>
+        <field name="empresa_referencia">Burdina SA de CV</field>
+        <field name="filename">cidt_burdina_indeterminado_hombre.docx</field>
+        <field name="file" type="base64" file="mx_labkan_contratos/static/templates/cidt_burdina_indeterminado_hombre.docx"/>
+        <field name="note">Placeholders: nombre_trabajador, estado_civil, curp, rfc, nss, domicilio, puesto, actividades, dia, mes, anio, salario_numero, salario_letra, periodicidad, fecha_firma</field>
+    </record>
+
+    <record id="doc_template_cidt_burdina_indet_mujer" model="hr.document.template">
+        <field name="name">CIDT Indeterminado - Burdina (Mujer)</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">mujer</field>
+        <field name="empresa_referencia">Burdina SA de CV</field>
+        <field name="filename">cidt_burdina_indeterminado_mujer.docx</field>
+        <field name="file" type="base64" file="mx_labkan_contratos/static/templates/cidt_burdina_indeterminado_mujer.docx"/>
+        <field name="note">Placeholders: nombre_trabajador, estado_civil, curp, rfc, nss, domicilio, puesto, actividades, dia, mes, anio, salario_numero, salario_letra, periodicidad, fecha_firma</field>
+    </record>
+
+    <record id="doc_template_cpsp_crystal" model="hr.document.template">
+        <field name="name">CPSP - Crystal Clear Recruit</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">unisex</field>
+        <field name="empresa_referencia">Crystal Clear Recruit</field>
+        <field name="filename">cpsp_crystal.docx</field>
+        <field name="file" type="base64" file="mx_labkan_contratos/static/templates/cpsp_crystal.docx"/>
+        <field name="note">Placeholders: nombre_trabajador</field>
+    </record>
+
+    <record id="doc_template_cpsp_krino_hombre" model="hr.document.template">
+        <field name="name">CPSP - Krino Consultores (Hombre)</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">hombre</field>
+        <field name="empresa_referencia">Krino Consultores SA de CV</field>
+        <field name="filename">cpsp_krino_hombre.docx</field>
+        <field name="file" type="base64" file="mx_labkan_contratos/static/templates/cpsp_krino_hombre.docx"/>
+        <field name="note">Placeholders: nombre_trabajador</field>
+    </record>
+
+    <record id="doc_template_cpsp_krino_mujer" model="hr.document.template">
+        <field name="name">CPSP - Krino Consultores (Mujer)</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">mujer</field>
+        <field name="empresa_referencia">Krino Consultores SA de CV</field>
+        <field name="filename">cpsp_krino_mujer.docx</field>
+        <field name="file" type="base64" file="mx_labkan_contratos/static/templates/cpsp_krino_mujer.docx"/>
+        <field name="note">Placeholders: nombre_trabajador</field>
+    </record>
+</odoo>
