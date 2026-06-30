@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- Las reglas que dependen de horas/días se capturan como "Other Input"
+         del recibo, igual que el patrón nativo de Commissions/Bonus -->
+
+    <record id="input_horas_extra_dobles" model="hr.payslip.input.type">
+        <field name="name">Horas Extra Dobles</field>
+        <field name="code">HRS_EXTRA_DOBLE</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_horas_extra_triples" model="hr.payslip.input.type">
+        <field name="name">Horas Extra Triples</field>
+        <field name="code">HRS_EXTRA_TRIPLE</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_dias_festivo_laborado" model="hr.payslip.input.type">
+        <field name="name">Días Festivo Laborado</field>
+        <field name="code">DIAS_FESTIVO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_domingos_trabajados" model="hr.payslip.input.type">
+        <field name="name">Domingos Trabajados (Prima Dominical)</field>
+        <field name="code">DOMINGOS_PRIMA_DOM</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_ptu" model="hr.payslip.input.type">
+        <field name="name">PTU (Reparto de Utilidades)</field>
+        <field name="code">PTU</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_premio_asistencia" model="hr.payslip.input.type">
+        <field name="name">Premio de Asistencia</field>
+        <field name="code">PREMIO_ASISTENCIA</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_premio_puntualidad" model="hr.payslip.input.type">
+        <field name="name">Premio de Puntualidad</field>
+        <field name="code">PREMIO_PUNTUALIDAD</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_compensacion" model="hr.payslip.input.type">
+        <field name="name">Compensación</field>
+        <field name="code">COMPENSACION</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_habitacion" model="hr.payslip.input.type">
+        <field name="name">Habitación</field>
+        <field name="code">HABITACION</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_anticipo_nomina" model="hr.payslip.input.type">
+        <field name="name">Anticipo de Nómina</field>
+        <field name="code">ANTICIPO_NOMINA</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_caja_ahorro" model="hr.payslip.input.type">
+        <field name="name">Caja de Ahorro (descuento)</field>
+        <field name="code">CAJA_AHORRO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_sar_voluntario" model="hr.payslip.input.type">
+        <field name="name">SAR Voluntario</field>
+        <field name="code">SAR_VOLUNTARIO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_infonavit_voluntario" model="hr.payslip.input.type">
+        <field name="name">INFONAVIT Voluntario</field>
+        <field name="code">INFONAVIT_VOLUNTARIO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+</odoo>
