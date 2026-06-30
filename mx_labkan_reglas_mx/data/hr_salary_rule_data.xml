@@ -13,7 +13,7 @@
         <field name="condition_other_input_id" ref="input_horas_extra_dobles"/>
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
-salario_diario = contract.wage / 30
+salario_diario = version.wage / 30
 horas_diarias = version.resource_calendar_id.hours_per_day or 8
 horas = inputs['HRS_EXTRA_DOBLE'].amount
 result = (salario_diario / horas_diarias) * 2 * horas
@@ -30,7 +30,7 @@ result = (salario_diario / horas_diarias) * 2 * horas
         <field name="condition_other_input_id" ref="input_horas_extra_triples"/>
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
-salario_diario = contract.wage / 30
+salario_diario = version.wage / 30
 horas_diarias = version.resource_calendar_id.hours_per_day or 8
 horas = inputs['HRS_EXTRA_TRIPLE'].amount
 result = (salario_diario / horas_diarias) * 3 * horas
@@ -47,7 +47,7 @@ result = (salario_diario / horas_diarias) * 3 * horas
         <field name="condition_other_input_id" ref="input_dias_festivo_laborado"/>
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
-salario_diario = contract.wage / 30
+salario_diario = version.wage / 30
 dias = inputs['DIAS_FESTIVO'].amount
 result = salario_diario * 3 * dias
         </field>
@@ -63,7 +63,7 @@ result = salario_diario * 3 * dias
         <field name="condition_other_input_id" ref="input_domingos_trabajados"/>
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
-salario_diario = contract.wage / 30
+salario_diario = version.wage / 30
 domingos = inputs['DOMINGOS_PRIMA_DOM'].amount
 result = salario_diario * domingos * 0.25
         </field>
