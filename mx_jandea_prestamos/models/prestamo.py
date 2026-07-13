@@ -13,14 +13,16 @@ class MxJandeaPrestamo(models.Model):
     _inherit = ['mail.thread']
     _order = 'fecha_inicio desc, id desc'
     _rec_name = 'name'
+    _check_company_auto = True
 
     name = fields.Char('Referencia', compute='_compute_name', store=True)
+    company_id = fields.Many2one(
+        'res.company', string='Compañía', required=True, index=True,
+        default=lambda self: self.env.company,
+    )
     employee_id = fields.Many2one(
         'hr.employee', string='Empleado', required=True, tracking=True,
-    )
-    company_id = fields.Many2one(
-        'res.company', string='Compañía', required=True,
-        default=lambda self: self.env.company,
+        check_company=True, domain="[('company_id', '=', company_id)]",
     )
     currency_id = fields.Many2one(related='company_id.currency_id')
 
@@ -34,6 +36,7 @@ class MxJandeaPrestamo(models.Model):
 
     attachment_id = fields.Many2one(
         'hr.salary.attachment', string='Ajuste salarial', readonly=True, copy=False,
+        check_company=True,
     )
     state = fields.Selection(
         [('borrador', 'Borrador'), ('confirmado', 'Confirmado'), ('cerrado', 'Cerrado')],
@@ -60,8 +63,13 @@ class MxJandeaPrestamo(models.Model):
 
     @api.depends('attachment_id.paid_amount', 'monto_total')
     def _compute_balance(self):
+        # sudo(): el ajuste salarial trae regla multiempresa nativa. Leerlo con
+        # el usuario provoca "Error de acceso" cuando la compañía del préstamo
+        # no está activada en el selector. La regla del préstamo ya garantiza
+        # que el usuario solo ve registros de sus compañías activas.
         for r in self:
-            descontado = r.attachment_id.paid_amount if r.attachment_id else 0.0
+            attachment = r.attachment_id.sudo()
+            descontado = attachment.paid_amount if attachment else 0.0
             r.descontado = descontado
             r.restante = max(0.0, r.monto_total - descontado)
 
@@ -73,7 +81,7 @@ class MxJandeaPrestamo(models.Model):
     @api.depends('payslip_ids')
     def _compute_payslip_count(self):
         for r in self:
-            r.payslip_count = len(r.payslip_ids)
+            r.payslip_count = len(r.attachment_id.sudo().payslip_ids)
 
     def _delta(self):
         self.ensure_one()
@@ -93,7 +101,9 @@ class MxJandeaPrestamo(models.Model):
                 raise UserError(_('El monto por período no puede ser mayor que el monto total.'))
 
             input_type = self.env.ref('mx_jandea_prestamos.input_type_prestamo')
-            attachment = self.env['hr.salary.attachment'].create({
+            # with_company: fuerza el contexto de compañía del préstamo para que
+            # la regla nativa de hr.salary.attachment no bloquee la creación.
+            attachment = self.env['hr.salary.attachment'].with_company(r.company_id).create({
                 'employee_ids': [(6, 0, [r.employee_id.id])],
                 'company_id': r.company_id.id,
                 'description': _('Préstamo'),
@@ -104,7 +114,6 @@ class MxJandeaPrestamo(models.Model):
                 'date_start': r.fecha_inicio,
                 'state': 'open',
             })
-            # Refuerzo defensivo: asegurar duración Limitada y total correcto.
             if attachment.duration_type != 'limited':
                 attachment.write({'duration_type': 'limited', 'total_amount': r.monto_total})
 
@@ -145,7 +154,7 @@ class MxJandeaPrestamo(models.Model):
             'name': _('Recibos'),
             'res_model': 'hr.payslip',
             'view_mode': 'list,form',
-            'domain': [('id', 'in', self.payslip_ids.ids)],
+            'domain': [('id', 'in', self.attachment_id.sudo().payslip_ids.ids)],
         }
 
 
@@ -156,6 +165,11 @@ class MxJandeaPrestamoLinea(models.Model):
 
     prestamo_id = fields.Many2one(
         'mx.jandea.prestamo', string='Préstamo', required=True, ondelete='cascade',
+    )
+    # Almacenado + indexado: lo necesita la ir.rule multiempresa de la línea.
+    company_id = fields.Many2one(
+        related='prestamo_id.company_id', string='Compañía',
+        store=True, index=True, readonly=True,
     )
     currency_id = fields.Many2one(related='prestamo_id.currency_id')
     secuencia = fields.Integer('No.')
