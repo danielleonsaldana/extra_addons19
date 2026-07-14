@@ -1,8 +1,5 @@
 <?xml version="1.0"?>
 <odoo>
-    <!-- Las reglas que dependen de horas/días se capturan como "Other Input"
-         del recibo, igual que el patrón nativo de Commissions/Bonus -->
-
     <record id="input_horas_extra_dobles" model="hr.payslip.input.type">
         <field name="name">Horas Extra Dobles</field>
         <field name="code">HRS_EXTRA_DOBLE</field>

@@ -1,14 +1,49 @@
 <?xml version="1.0"?>
 <odoo>
-    <!-- =================== PERCEPCIONES (entran a GROSS / ISR) =================== -->
-    <!-- Mismo patrón que Commissions/Bonus nativos: categoría taxable_alw,
-         sequence entre Bonus (93) y GROSS (100) -->
+    <!-- =======================================================================
+         FIX: Regla ISR nativa — crash cuando GROSS = 0 (empleado con todas faltas)
+         Se sobreescribe solo la fórmula Python; todo lo demás permanece igual.
+         ======================================================================= -->
+    <record id="l10n_mx_hr_payroll.l10n_mx_regular_pay_isr" model="hr.salary.rule">
+        <field name="amount_python_compute">
+def find_rates(x, rates):
+    for low, high, fix, rate in rates:
+        if low &lt;= x &lt;= high:
+            return low, high, fix, rate
+    # Guard: si GROSS no cae en ningún rango (ej. GROSS=0) usa el primer tramo
+    return rates[0]
 
-    <!-- Helper de salario diario:
-         El wage en Odoo 19 SIEMPRE es mensual. El salario diario se calcula
-         dividiendo entre los días reales del período del recibo (date_to - date_from + 1).
-         Esto funciona automáticamente para: semanal (7d), quincenal (15d), mensual (28-31d).
-         Ley federal mexicana: LFT Art.82 — base siempre sobre el día. -->
+gross = categories['GROSS']
+result = 0
+if gross and gross &gt; 0:
+    isr_table = payslip._rule_parameter('l10n_mx_isr_tables')[version.schedule_pay]
+    low, high, fix, rate = find_rates(gross, isr_table)
+    result = -((gross - low) * rate + fix)
+
+period_factor = payslip._rule_parameter('l10n_mx_schedule_table')[version.schedule_pay]
+if period_factor &gt;= 15:
+    period_factor = (period_factor / 30) * (365 / 12)
+min_wage = payslip._rule_parameter('l10n_mx_daily_min_wage') * period_factor
+
+if gross &lt;= min_wage:
+    result_qty = 0.0
+        </field>
+    </record>
+
+    <!-- =======================================================================
+         PERCEPCIONES COMPLEMENTARIAS
+         Categoría: taxable_alw (mismo patrón que Commissions/Bonus nativos)
+         → se suman automáticamente a GROSS e ISR nativos
+         Sequence: 94-99 (entre Bonus nativo ~93 y GROSS ~100)
+
+         SALARIO DIARIO DINÁMICO:
+         wage en Odoo 19 siempre es mensual. Se divide entre los días reales
+         del período del recibo (date_to - date_from + 1):
+           Semanal  (7d)  → wage / 7
+           Quincenal(15d) → wage / 15
+           Mensual  (31d) → wage / 31
+         Esto cumple LFT Art.82 sin hardcodear la periodicidad.
+         ======================================================================= -->
 
     <record id="rule_horas_extra_dobles" model="hr.salary.rule">
         <field name="name">Horas Extra Dobles</field>
@@ -140,9 +175,12 @@ result = salario_diario * domingos * 0.25
         <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
     </record>
 
-    <!-- =================== DEDUCCIONES (entran a NET vía categoría DED) =================== -->
-    <!-- sequence entre Child Support (174) y NET (200), mismo patrón que
-         Deduction nativo (198) -->
+    <!-- =======================================================================
+         DEDUCCIONES COMPLEMENTARIAS
+         Categoría: DED nativa → se reflejan automáticamente en NET
+         Sequence: 180-183 (antes del NET nativo ~200)
+         Todas usan result negativo para que sean deducciones reales.
+         ======================================================================= -->
 
     <record id="rule_anticipo_nomina" model="hr.salary.rule">
         <field name="name">Anticipo de Nómina</field>
@@ -189,23 +227,6 @@ result = salario_diario * domingos * 0.25
         <field name="condition_other_input_id" ref="input_infonavit_voluntario"/>
         <field name="amount_select">code</field>
         <field name="amount_python_compute">result = -inputs['INFONAVIT_VOLUNTARIO'].amount</field>
-        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
-    </record>
-
-    <!-- Impuesto Local: la tasa varía por estado (CDMX 3%, EdoMex 3%, etc.).
-         AJUSTAR el valor 0.03 según el estado del centro de trabajo antes
-         de usar en producción, o convertir a campo de configuración. -->
-    <record id="rule_impuesto_local" model="hr.salary.rule">
-        <field name="name">Impuesto Local (ISN)</field>
-        <field name="code">IMPUESTO_LOCAL</field>
-        <field name="category_id" ref="hr_payroll.DED"/>
-        <field name="sequence">184</field>
-        <field name="condition_select">none</field>
-        <field name="amount_select">code</field>
-        <field name="amount_python_compute">
-TASA_ISN = 0.03  # AJUSTAR por estado
-result = -categories['GROSS'] * TASA_ISN
-        </field>
         <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
     </record>
 </odoo>
