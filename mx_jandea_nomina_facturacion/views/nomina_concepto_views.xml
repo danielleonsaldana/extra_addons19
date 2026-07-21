@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_nomina_concepto_list" model="ir.ui.view">
+        <field name="name">mx.jandea.nomina.concepto.list</field>
+        <field name="model">mx.jandea.nomina.concepto</field>
+        <field name="arch" type="xml">
+            <list string="Conceptos de facturación">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="tipo_calculo"/>
+                <field name="porcentaje" optional="show"/>
+                <field name="base_nomina" optional="show"/>
+                <field name="monto_fijo" optional="hide"/>
+                <field name="company_id" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_nomina_concepto_form" model="ir.ui.view">
+        <field name="name">mx.jandea.nomina.concepto.form</field>
+        <field name="model">mx.jandea.nomina.concepto</field>
+        <field name="arch" type="xml">
+            <form string="Concepto de facturación">
+                <sheet>
+                    <widget name="web_ribbon" title="Archivado" bg_color="text-bg-danger"
+                            invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Ej. Comisión por administración de nómina"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="product_id"/>
+                            <field name="descripcion"/>
+                            <field name="tipo_calculo"/>
+                        </group>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Cálculo por porcentaje" invisible="tipo_calculo != 'porcentaje'">
+                        <group>
+                            <field name="porcentaje"/>
+                            <field name="base_nomina"/>
+                        </group>
+                        <group>
+                            <field name="base_codes" invisible="base_nomina != 'CUSTOM'"
+                                   required="base_nomina == 'CUSTOM'"/>
+                        </group>
+                    </group>
+                    <group string="Monto fijo" invisible="tipo_calculo != 'fijo'">
+                        <group>
+                            <field name="monto_fijo"/>
+                            <field name="por_empleado"/>
+                        </group>
+                    </group>
+                    <group invisible="tipo_calculo != 'manual'">
+                        <div colspan="2" class="text-muted">
+                            El importe se captura manualmente al generar la facturación.
+                        </div>
+                    </group>
+                    <group>
+                        <field name="notas"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_nomina_concepto" model="ir.actions.act_window">
+        <field name="name">Conceptos de Facturación</field>
+        <field name="res_model">mx.jandea.nomina.concepto</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Crea tu primer concepto de facturación</p>
+            <p>Define aquí los conceptos con los que se armará la orden de venta:
+               una comisión (% sobre una base de nómina), montos fijos, o conceptos
+               capturados manualmente.</p>
+        </field>
+    </record>
+
+</odoo>

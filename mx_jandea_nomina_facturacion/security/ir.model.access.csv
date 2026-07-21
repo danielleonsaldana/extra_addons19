@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_nomina_concepto_user,mx.jandea.nomina.concepto user,model_mx_jandea_nomina_concepto,hr_payroll.group_hr_payroll_user,1,0,0,0
+access_nomina_concepto_manager,mx.jandea.nomina.concepto manager,model_mx_jandea_nomina_concepto,hr_payroll.group_hr_payroll_manager,1,1,1,1
+access_facturacion_wizard,mx.jandea.nomina.facturacion.wizard,model_mx_jandea_nomina_facturacion_wizard,hr_payroll.group_hr_payroll_user,1,1,1,1
+access_facturacion_wizard_linea,mx.jandea.nomina.facturacion.wizard.linea,model_mx_jandea_nomina_facturacion_wizard_linea,hr_payroll.group_hr_payroll_user,1,1,1,1

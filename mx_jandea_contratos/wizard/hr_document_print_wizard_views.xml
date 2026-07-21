@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<odoo>
+    <record id="view_hr_document_print_wizard_form" model="ir.ui.view">
+        <field name="name">hr.document.print.wizard.form</field>
+        <field name="model">hr.document.print.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="employee_id" readonly="1"/>
+                    <field name="doc_type" widget="radio"/>
+                    <field name="genero"/>
+                    <field name="template_id"/>
+                </group>
+                <group string="Datos a insertar en el documento" col="2">
+                    <field name="nombre_trabajador"/>
+                    <field name="estado_civil"/>
+                    <field name="rfc"/>
+                    <field name="curp"/>
+                    <field name="nss"/>
+                    <field name="domicilio"/>
+                    <field name="puesto"/>
+                    <field name="actividades"/>
+                    <field name="dia"/>
+                    <field name="mes"/>
+                    <field name="anio"/>
+                    <field name="salario_numero"/>
+                    <field name="salario_letra"/>
+                    <field name="periodicidad"/>
+                    <field name="fecha_firma"/>
+                </group>
+                <footer>
+                    <button name="action_generate" type="object" string="Generar e Imprimir"
+                            class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

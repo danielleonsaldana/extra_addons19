@@ -1,0 +1,232 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- =======================================================================
+         FIX: Regla ISR nativa — crash cuando GROSS = 0 (empleado con todas faltas)
+         Se sobreescribe solo la fórmula Python; todo lo demás permanece igual.
+         ======================================================================= -->
+    <record id="l10n_mx_hr_payroll.l10n_mx_regular_pay_isr" model="hr.salary.rule">
+        <field name="amount_python_compute">
+def find_rates(x, rates):
+    for low, high, fix, rate in rates:
+        if low &lt;= x &lt;= high:
+            return low, high, fix, rate
+    # Guard: si GROSS no cae en ningún rango (ej. GROSS=0) usa el primer tramo
+    return rates[0]
+
+gross = categories['GROSS']
+result = 0
+if gross and gross &gt; 0:
+    isr_table = payslip._rule_parameter('l10n_mx_isr_tables')[version.schedule_pay]
+    low, high, fix, rate = find_rates(gross, isr_table)
+    result = -((gross - low) * rate + fix)
+
+period_factor = payslip._rule_parameter('l10n_mx_schedule_table')[version.schedule_pay]
+if period_factor &gt;= 15:
+    period_factor = (period_factor / 30) * (365 / 12)
+min_wage = payslip._rule_parameter('l10n_mx_daily_min_wage') * period_factor
+
+if gross &lt;= min_wage:
+    result_qty = 0.0
+        </field>
+    </record>
+
+    <!-- =======================================================================
+         PERCEPCIONES COMPLEMENTARIAS
+         Categoría: taxable_alw (mismo patrón que Commissions/Bonus nativos)
+         → se suman automáticamente a GROSS e ISR nativos
+         Sequence: 94-99 (entre Bonus nativo ~93 y GROSS ~100)
+
+         SALARIO DIARIO DINÁMICO:
+         wage en Odoo 19 siempre es mensual. Se divide entre los días reales
+         del período del recibo (date_to - date_from + 1):
+           Semanal  (7d)  → wage / 7
+           Quincenal(15d) → wage / 15
+           Mensual  (31d) → wage / 31
+         Esto cumple LFT Art.82 sin hardcodear la periodicidad.
+         ======================================================================= -->
+
+    <record id="rule_horas_extra_dobles" model="hr.salary.rule">
+        <field name="name">Horas Extra Dobles</field>
+        <field name="code">HRS_EXTRA_DOBLE</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">94</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_horas_extra_dobles"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">
+dias_periodo = (payslip.date_to - payslip.date_from).days + 1
+salario_diario = version.wage / dias_periodo
+horas_diarias = version.resource_calendar_id.hours_per_day or 8
+horas = inputs['HRS_EXTRA_DOBLE'].amount
+result = (salario_diario / horas_diarias) * 2 * horas
+        </field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_horas_extra_triples" model="hr.salary.rule">
+        <field name="name">Horas Extra Triples</field>
+        <field name="code">HRS_EXTRA_TRIPLE</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">95</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_horas_extra_triples"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">
+dias_periodo = (payslip.date_to - payslip.date_from).days + 1
+salario_diario = version.wage / dias_periodo
+horas_diarias = version.resource_calendar_id.hours_per_day or 8
+horas = inputs['HRS_EXTRA_TRIPLE'].amount
+result = (salario_diario / horas_diarias) * 3 * horas
+        </field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_festivo_laborado" model="hr.salary.rule">
+        <field name="name">Festivo Laborado</field>
+        <field name="code">FESTIVO_LABORADO</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">96</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_dias_festivo_laborado"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">
+dias_periodo = (payslip.date_to - payslip.date_from).days + 1
+salario_diario = version.wage / dias_periodo
+dias = inputs['DIAS_FESTIVO'].amount
+result = salario_diario * 3 * dias
+        </field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_prima_dominical" model="hr.salary.rule">
+        <field name="name">Prima Dominical</field>
+        <field name="code">PRIMA_DOM</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">97</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_domingos_trabajados"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">
+dias_periodo = (payslip.date_to - payslip.date_from).days + 1
+salario_diario = version.wage / dias_periodo
+domingos = inputs['DOMINGOS_PRIMA_DOM'].amount
+result = salario_diario * domingos * 0.25
+        </field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_ptu" model="hr.salary.rule">
+        <field name="name">PTU (Reparto de Utilidades)</field>
+        <field name="code">PTU</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">98</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_ptu"/>
+        <field name="amount_select">input</field>
+        <field name="amount_other_input_id" ref="input_ptu"/>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_premio_asistencia" model="hr.salary.rule">
+        <field name="name">Premio de Asistencia</field>
+        <field name="code">PREMIO_ASISTENCIA</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">99</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_premio_asistencia"/>
+        <field name="amount_select">input</field>
+        <field name="amount_other_input_id" ref="input_premio_asistencia"/>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_premio_puntualidad" model="hr.salary.rule">
+        <field name="name">Premio de Puntualidad</field>
+        <field name="code">PREMIO_PUNTUALIDAD</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">99</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_premio_puntualidad"/>
+        <field name="amount_select">input</field>
+        <field name="amount_other_input_id" ref="input_premio_puntualidad"/>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_compensacion" model="hr.salary.rule">
+        <field name="name">Compensación</field>
+        <field name="code">COMPENSACION</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">99</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_compensacion"/>
+        <field name="amount_select">input</field>
+        <field name="amount_other_input_id" ref="input_compensacion"/>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_habitacion" model="hr.salary.rule">
+        <field name="name">Habitación</field>
+        <field name="code">HABITACION</field>
+        <field name="category_id" ref="l10n_mx_hr_payroll.l10n_mx_category_taxable_alw"/>
+        <field name="sequence">99</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_habitacion"/>
+        <field name="amount_select">input</field>
+        <field name="amount_other_input_id" ref="input_habitacion"/>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <!-- =======================================================================
+         DEDUCCIONES COMPLEMENTARIAS
+         Categoría: DED nativa → se reflejan automáticamente en NET
+         Sequence: 180-183 (antes del NET nativo ~200)
+         Todas usan result negativo para que sean deducciones reales.
+         ======================================================================= -->
+
+    <record id="rule_anticipo_nomina" model="hr.salary.rule">
+        <field name="name">Anticipo de Nómina</field>
+        <field name="code">ANTICIPO_NOMINA</field>
+        <field name="category_id" ref="hr_payroll.DED"/>
+        <field name="sequence">180</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_anticipo_nomina"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">result = -inputs['ANTICIPO_NOMINA'].amount</field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_caja_ahorro" model="hr.salary.rule">
+        <field name="name">Caja de Ahorro</field>
+        <field name="code">CAJA_AHORRO</field>
+        <field name="category_id" ref="hr_payroll.DED"/>
+        <field name="sequence">181</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_caja_ahorro"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">result = -inputs['CAJA_AHORRO'].amount</field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_sar_voluntario" model="hr.salary.rule">
+        <field name="name">SAR Voluntario</field>
+        <field name="code">SAR_VOLUNTARIO</field>
+        <field name="category_id" ref="hr_payroll.DED"/>
+        <field name="sequence">182</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_sar_voluntario"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">result = -inputs['SAR_VOLUNTARIO'].amount</field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+
+    <record id="rule_infonavit_voluntario" model="hr.salary.rule">
+        <field name="name">INFONAVIT Voluntario</field>
+        <field name="code">INFONAVIT_VOLUNTARIO</field>
+        <field name="category_id" ref="hr_payroll.DED"/>
+        <field name="sequence">183</field>
+        <field name="condition_select">input</field>
+        <field name="condition_other_input_id" ref="input_infonavit_voluntario"/>
+        <field name="amount_select">code</field>
+        <field name="amount_python_compute">result = -inputs['INFONAVIT_VOLUNTARIO'].amount</field>
+        <field name="struct_id" ref="l10n_mx_hr_payroll.l10n_mx_regular_pay"/>
+    </record>
+</odoo>

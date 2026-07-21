@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_facturacion_wizard_form" model="ir.ui.view">
+        <field name="name">mx.jandea.nomina.facturacion.wizard.form</field>
+        <field name="model">mx.jandea.nomina.facturacion.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Generar facturación de nómina">
+                <group>
+                    <group string="Origen de la nómina">
+                        <field name="modo" widget="radio"/>
+                        <field name="payslip_run_id"
+                               invisible="modo != 'lote'"
+                               required="modo == 'lote'"/>
+                        <field name="company_nomina_id"
+                               options="{'no_create': True}"/>
+                        <field name="date_from" invisible="modo != 'mensual'"
+                               required="modo == 'mensual'"/>
+                        <field name="date_to" invisible="modo != 'mensual'"
+                               required="modo == 'mensual'"/>
+                    </group>
+                    <group string="Facturación">
+                        <field name="company_emisor_id" options="{'no_create': True}"/>
+                        <field name="partner_id"/>
+                        <field name="currency_id" invisible="1"/>
+                    </group>
+                </group>
+
+                <div class="oe_button_box" invisible="not calculado">
+                    <group string="Bases calculadas de la nómina">
+                        <group>
+                            <field name="num_empleados"/>
+                            <field name="base_gross"/>
+                            <field name="base_net"/>
+                        </group>
+                        <group>
+                            <field name="base_basic"/>
+                            <field name="base_ded"/>
+                        </group>
+                    </group>
+                </div>
+
+                <field name="linea_ids" invisible="not calculado">
+                    <list editable="bottom">
+                        <field name="concepto_id" readonly="1" optional="show"/>
+                        <field name="product_id"/>
+                        <field name="name"/>
+                        <field name="cantidad"/>
+                        <field name="precio_unitario"/>
+                        <field name="subtotal" readonly="1"/>
+                        <field name="currency_id" column_invisible="1"/>
+                    </list>
+                </field>
+
+                <footer>
+                    <button name="action_calcular" string="Calcular / Previsualizar"
+                            type="object" class="btn-primary" invisible="calculado"/>
+                    <button name="action_calcular" string="Recalcular"
+                            type="object" invisible="not calculado"/>
+                    <button name="action_generar_orden" string="Generar Orden de Venta"
+                            type="object" class="btn-primary" invisible="not calculado"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_facturacion_wizard" model="ir.actions.act_window">
+        <field name="name">Generar Facturación de Nómina</field>
+        <field name="res_model">mx.jandea.nomina.facturacion.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

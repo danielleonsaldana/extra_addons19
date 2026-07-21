@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<odoo>
+    <record id="view_employee_form_print_document" model="ir.ui.view">
+        <field name="name">hr.employee.form.print.document</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="action_print_document" type="object"
+                        string="Imprimir Documento" class="oe_stat_button"
+                        icon="fa-file-text-o"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
