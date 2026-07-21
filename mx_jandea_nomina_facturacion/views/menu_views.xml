@@ -3,7 +3,7 @@
 
     <menuitem id="menu_nomina_facturacion_root"
               name="Facturación de Nómina"
-              parent="hr_payroll.menu_hr_payroll_root"
+              parent="hr.menu_hr_root"
               sequence="90"/>
 
     <menuitem id="menu_facturacion_wizard"

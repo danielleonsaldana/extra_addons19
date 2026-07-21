@@ -6,15 +6,21 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@name='sale_header']" position="after">
-                <group string="Origen: Nómina" invisible="not mx_jandea_nomina_origen"
-                       name="mx_jandea_nomina">
+            <xpath expr="//notebook" position="inside">
+                <page string="Origen: Nómina" name="mx_jandea_nomina"
+                      invisible="not mx_jandea_nomina_origen">
                     <field name="mx_jandea_nomina_origen" invisible="1"/>
-                    <field name="mx_jandea_nomina_company_id"/>
-                    <field name="mx_jandea_nomina_run_id"/>
-                    <field name="mx_jandea_nomina_periodo"/>
-                    <field name="mx_jandea_nomina_num_empleados"/>
-                </group>
+                    <group>
+                        <group>
+                            <field name="mx_jandea_nomina_company_id"/>
+                            <field name="mx_jandea_nomina_run_id"/>
+                        </group>
+                        <group>
+                            <field name="mx_jandea_nomina_periodo"/>
+                            <field name="mx_jandea_nomina_num_empleados"/>
+                        </group>
+                    </group>
+                </page>
             </xpath>
         </field>
     </record>
@@ -22,12 +28,13 @@
     <record id="view_sale_order_filter_nomina" model="ir.ui.view">
         <field name="name">sale.order.search.mx.jandea.nomina</field>
         <field name="model">sale.order</field>
-        <field name="inherit_id" ref="sale.sale_order_view_search_inherit_sale"/>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
         <field name="arch" type="xml">
-            <filter name="my_sale_orders_filter" position="before">
+            <xpath expr="//search" position="inside">
+                <separator/>
                 <filter name="mx_jandea_nomina_origen" string="Origen nómina"
                         domain="[('mx_jandea_nomina_origen', '=', True)]"/>
-            </filter>
+            </xpath>
         </field>
     </record>
 
