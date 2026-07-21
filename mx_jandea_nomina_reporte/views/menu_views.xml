@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_nomina_reporte_root"
+              name="Reportes de Nómina"
+              parent="hr.menu_hr_root"
+              sequence="92"/>
+
+    <menuitem id="menu_reporte_wizard"
+              name="Listado de Nómina (Excel)"
+              parent="menu_nomina_reporte_root"
+              action="action_reporte_wizard"
+              sequence="10"/>
+
+    <menuitem id="menu_reporte_map"
+              name="Mapeo de Columnas (Excel)"
+              parent="menu_nomina_reporte_root"
+              action="action_reporte_map"
+              sequence="20"/>
+
+</odoo>

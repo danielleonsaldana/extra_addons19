@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Mapeo por defecto. Se crea una fila por columna para que edites los
+         códigos desde Nómina -> Reportes -> Mapeo de Columnas.
+         noupdate="1": tus ediciones NO se sobreescriben al actualizar el módulo.
+         Las columnas sin código quedan en 0 hasta que asignes el código real
+         de tu instancia. 'Sueldo' sin código usa la categoría BASIC automáticamente. -->
+    <data noupdate="1">
+
+        <!-- Percepciones -->
+        <record id="map_sueldo" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">sueldo</field>
+            <field name="codes"></field>
+            <field name="notas">Vacío = usa categoría BASIC</field>
+        </record>
+        <record id="map_vacaciones" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">vacaciones</field>
+            <field name="notas">Asigna el código de tu regla de Vacaciones</field>
+        </record>
+        <record id="map_prima_vacacional" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">prima_vacacional</field>
+            <field name="notas">Asigna el código de Prima Vacacional</field>
+        </record>
+        <record id="map_festivo" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">festivo</field>
+            <field name="codes">FESTIVO_LABORADO</field>
+        </record>
+        <record id="map_descanso" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">descanso</field>
+            <field name="notas">Asigna el código de Descanso Laborado</field>
+        </record>
+        <record id="map_vales_despensa" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">vales_despensa</field>
+            <field name="notas">Asigna el código de Vales de Despensa</field>
+        </record>
+        <record id="map_fondo_ahorro" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">fondo_ahorro</field>
+            <field name="notas">Asigna el código de Fondo de Ahorro (percepción)</field>
+        </record>
+        <record id="map_prima_dominical" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">prima_dominical</field>
+            <field name="codes">PRIMA_DOM</field>
+        </record>
+        <record id="map_otras_percepciones" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">otras_percepciones</field>
+            <field name="notas">Códigos varios separados por coma</field>
+        </record>
+        <record id="map_aguinaldo" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">aguinaldo</field>
+            <field name="notas">Asigna el código de Aguinaldo</field>
+        </record>
+        <record id="map_ptu" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">ptu</field>
+            <field name="codes">PTU</field>
+        </record>
+
+        <!-- Deducciones -->
+        <record id="map_isr" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">isr</field>
+            <field name="codes">ISR</field>
+            <field name="notas">Verifica el código ISR de l10n_mx en tu instancia</field>
+        </record>
+        <record id="map_cuotas_imss" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">cuotas_imss</field>
+            <field name="codes">IMSS</field>
+            <field name="notas">Verifica el código IMSS de l10n_mx en tu instancia</field>
+        </record>
+        <record id="map_anticipo_nomina" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">anticipo_nomina</field>
+            <field name="codes">ANTICIPO_NOMINA</field>
+        </record>
+        <record id="map_prestamo_personal" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">prestamo_personal</field>
+            <field name="codes">PRESTAMO</field>
+            <field name="notas">Verifica el código con que descuenta mx_jandea_prestamos</field>
+        </record>
+        <record id="map_adeudo_empresa" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">adeudo_empresa</field>
+            <field name="notas">Asigna el código de Adeudo Empresa</field>
+        </record>
+        <record id="map_pension_alimenticia" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">pension_alimenticia</field>
+            <field name="notas">Asigna el código de Pensión Alimenticia</field>
+        </record>
+        <record id="map_caja_ahorro" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">caja_ahorro</field>
+            <field name="codes">CAJA_AHORRO</field>
+        </record>
+        <record id="map_fondo_ahorro_emp" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">fondo_ahorro_emp</field>
+            <field name="notas">Descuento Fondo de Ahorro (parte empleado)</field>
+        </record>
+        <record id="map_fondo_ahorro_pat" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">fondo_ahorro_pat</field>
+            <field name="notas">Fondo de Ahorro (parte patrón)</field>
+        </record>
+        <record id="map_otras_deducciones" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">otras_deducciones</field>
+            <field name="notas">Códigos varios separados por coma</field>
+        </record>
+        <record id="map_descuento_vales" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">descuento_vales</field>
+            <field name="notas">Descuento por Vales de Despensa</field>
+        </record>
+
+    </data>
+</odoo>

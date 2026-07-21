@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_reporte_map_user,mx.jandea.nomina.reporte.map user,model_mx_jandea_nomina_reporte_map,hr.group_hr_user,1,0,0,0
+access_reporte_map_manager,mx.jandea.nomina.reporte.map manager,model_mx_jandea_nomina_reporte_map,hr.group_hr_manager,1,1,1,1
+access_reporte_wizard,mx.jandea.nomina.reporte.wizard,model_mx_jandea_nomina_reporte_wizard,hr.group_hr_user,1,1,1,1
