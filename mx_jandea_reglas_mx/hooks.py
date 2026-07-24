@@ -68,6 +68,18 @@ UMA = _param('mx_jandea_uma', 117.31)
 SMG = _param('mx_jandea_smg', 315.04)
 
 fecha_baja = payslip.date_to
+# Si la baja ocurrio a mitad del periodo, los conceptos proporcionales
+# (aguinaldo, vacaciones, prima vacacional) deben cortarse en la FECHA REAL
+# DE BAJA, no al cierre de la quincena.
+for _o, _f in ((version, 'contract_date_end'), (version, 'date_end'),
+               (employee, 'departure_date')):
+    try:
+        _v = getattr(_o, _f, False)
+    except Exception:
+        _v = False
+    if _v and payslip.date_from <= _v <= payslip.date_to:
+        fecha_baja = _v
+        break
 fecha_alta = False
 for _o, _f in ((version, 'contract_date_start'), (version, 'date_start'),
                (version, 'date_version'), (employee, 'first_contract_date')):
@@ -144,6 +156,27 @@ sd_imss = _in('FNQT_SD_IMSS', 0.0) or sd_real
 sdi_imss = _in('FNQT_SDI_IMSS', 0.0) or sd_imss
 
 dias_sal = _in('FNQT_DIAS_SAL', 0.0)
+if not dias_sal:
+    # Sin captura manual, se toman los DIAS EFECTIVAMENTE TRABAJADOS del
+    # periodo (los ultimos dias laborados antes de la baja), NO el periodo
+    # completo de la quincena. Se excluyen las entradas no pagadas
+    # (faltas / "Sin pagar"), que no generan salario.
+    _wd = 0.0
+    for _l in payslip.worked_days_line_ids:
+        _n = _l.number_of_days or 0.0
+        if _n <= 0:
+            continue
+        _pagado = True
+        try:
+            _pagado = bool(_l.is_paid)
+        except Exception:
+            try:
+                _pagado = (_l.work_entry_type_id.paid_amount_rate or 0.0) > 0
+            except Exception:
+                _pagado = True
+        if _pagado:
+            _wd += _n
+    dias_sal = _wd
 factor_liq = _in('FNQT_FACTOR_LIQ', 0.0) or 1.0
 agui_pagado = _in('FNQT_AGUI_PAGADO', 0.0)
 ind_90 = _in('FNQT_IND_90', 0.0)

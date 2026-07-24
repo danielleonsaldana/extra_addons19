@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_recibo_nomina_doc">
+        <t t-set="d" t-value="datos[o.id]"/>
+        <div class="page" style="font-family: Arial, Helvetica, sans-serif; font-size: 10px; color:#222;">
+
+            <div style="border:1px solid #333; padding:8px; margin-bottom:8px;">
+                <table style="width:100%;">
+                    <tr>
+                        <td style="width:60%; vertical-align:top;">
+                            <div style="font-size:14px; font-weight:bold;">
+                                <span t-field="o.company_id.name"/>
+                            </div>
+                            <div t-if="d['rfc_empresa']">
+                                <strong>RFC:</strong> <span t-esc="d['rfc_empresa']"/>
+                            </div>
+                            <div t-if="d['registro_patronal']">
+                                <strong>Registro Patronal:</strong>
+                                <span t-esc="d['registro_patronal']"/>
+                            </div>
+                        </td>
+                        <td style="width:40%; vertical-align:top; text-align:right;">
+                            <div style="font-size:13px; font-weight:bold;">RECIBO DE NÓMINA</div>
+                            <div><strong>Folio:</strong> <span t-field="o.number"/></div>
+                            <div t-if="d['periodicidad']">
+                                <strong>Periodicidad:</strong> <span t-esc="d['periodicidad']"/>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:8px;">
+                <tr>
+                    <td style="border:1px solid #333; padding:5px; width:50%; vertical-align:top;">
+                        <div style="font-weight:bold; margin-bottom:3px;">DATOS DEL TRABAJADOR</div>
+                        <div><strong>Nombre:</strong> <span t-field="o.employee_id.name"/></div>
+                        <div t-if="d['rfc']"><strong>RFC:</strong> <span t-esc="d['rfc']"/></div>
+                        <div t-if="d['curp']"><strong>CURP:</strong> <span t-esc="d['curp']"/></div>
+                        <div t-if="d['nss']"><strong>No. de Seguro Social:</strong> <span t-esc="d['nss']"/></div>
+                    </td>
+                    <td style="border:1px solid #333; padding:5px; width:50%; vertical-align:top;">
+                        <div style="font-weight:bold; margin-bottom:3px;">DATOS DEL PERÍODO</div>
+                        <div t-if="d['puesto']"><strong>Puesto:</strong> <span t-esc="d['puesto']"/></div>
+                        <div t-if="d['departamento']"><strong>Departamento:</strong> <span t-esc="d['departamento']"/></div>
+                        <div t-if="d['fecha_ingreso']">
+                            <strong>Fecha de Ingreso:</strong> <span t-esc="d['fecha_ingreso']"/>
+                        </div>
+                        <div>
+                            <strong>Período:</strong>
+                            <span t-field="o.date_from"/> al <span t-field="o.date_to"/>
+                        </div>
+                        <div><strong>Días del Período:</strong> <span t-esc="d['dias_periodo']"/></div>
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width:100%; border-collapse:collapse;">
+                <tr>
+                    <td style="width:50%; vertical-align:top; padding-right:4px;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="background-color:#e8e8e8;">
+                                    <th colspan="2" style="border:1px solid #333; padding:4px; text-align:center;">
+                                        PERCEPCIONES
+                                    </th>
+                                </tr>
+                                <tr style="background-color:#f5f5f5;">
+                                    <th style="border:1px solid #333; padding:3px; text-align:left;">Concepto</th>
+                                    <th style="border:1px solid #333; padding:3px; text-align:right; width:32%;">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="d['percepciones']" t-as="p">
+                                    <td style="border:1px solid #333; padding:3px;">
+                                        <span t-esc="p['nombre']"/>
+                                    </td>
+                                    <td style="border:1px solid #333; padding:3px; text-align:right;">
+                                        <span t-esc="p['importe']"
+                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border:1px solid #333; padding:4px; font-weight:bold;">
+                                        TOTAL PERCEPCIONES
+                                    </td>
+                                    <td style="border:1px solid #333; padding:4px; text-align:right; font-weight:bold;">
+                                        <span t-esc="d['total_percepciones']"
+                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                    <td style="width:50%; vertical-align:top; padding-left:4px;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="background-color:#e8e8e8;">
+                                    <th colspan="2" style="border:1px solid #333; padding:4px; text-align:center;">
+                                        DEDUCCIONES
+                                    </th>
+                                </tr>
+                                <tr style="background-color:#f5f5f5;">
+                                    <th style="border:1px solid #333; padding:3px; text-align:left;">Concepto</th>
+                                    <th style="border:1px solid #333; padding:3px; text-align:right; width:32%;">Importe</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="d['deducciones']" t-as="dd">
+                                    <td style="border:1px solid #333; padding:3px;">
+                                        <span t-esc="dd['nombre']"/>
+                                    </td>
+                                    <td style="border:1px solid #333; padding:3px; text-align:right;">
+                                        <span t-esc="dd['importe']"
+                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="border:1px solid #333; padding:4px; font-weight:bold;">
+                                        TOTAL DEDUCCIONES
+                                    </td>
+                                    <td style="border:1px solid #333; padding:4px; text-align:right; font-weight:bold;">
+                                        <span t-esc="d['total_deducciones']"
+                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
+                <tr>
+                    <td style="border:1px solid #333; padding:6px; width:70%;">
+                        <strong>Importe con letra:</strong>
+                        <span t-esc="d['neto_letras']"/>
+                    </td>
+                    <td style="border:1px solid #333; padding:6px; text-align:right; background-color:#e8e8e8;">
+                        <div style="font-weight:bold;">NETO A PAGAR</div>
+                        <div style="font-size:14px; font-weight:bold;">
+                            <span t-esc="d['neto']"
+                                  t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="margin-top:36px; text-align:center;">
+                <div style="display:inline-block; width:60%; border-top:1px solid #333; padding-top:4px;">
+                    <span t-field="o.employee_id.name"/>
+                    <div style="font-size:9px;">Firma de conformidad del trabajador</div>
+                </div>
+            </div>
+
+        </div>
+    </template>
+
+    <template id="report_recibo_nomina">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="mx_jandea_nomina_recibo.report_recibo_nomina_doc"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>
