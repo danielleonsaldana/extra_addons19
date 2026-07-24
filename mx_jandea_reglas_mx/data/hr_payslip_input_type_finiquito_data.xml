@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- =======================================================================
+         ENTRADAS DEL FINIQUITO
+         Se capturan en la pestaña "Otras entradas" del recibo con estructura
+         "MX Finiquito / Liquidación".
+
+         Los struct_ids se asignan por código al instalar (ver hooks.py), porque
+         la estructura de Finiquito se crea en el post_init_hook.
+
+         Los valores 1/0 funcionan como interruptores (1 = SI, 0 = NO).
+         Si una entrada no se captura, la regla usa su valor por omisión.
+         ======================================================================= -->
+
+    <!-- === Base de cálculo === -->
+    <record id="input_fnqt_dias_sal" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días de salario pendiente</field>
+        <field name="code">FNQT_DIAS_SAL</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_sd_imss" model="hr.payslip.input.type">
+        <field name="name">FNQT · Salario diario IMSS</field>
+        <field name="code">FNQT_SD_IMSS</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_sdi_imss" model="hr.payslip.input.type">
+        <field name="name">FNQT · Salario diario integrado IMSS</field>
+        <field name="code">FNQT_SDI_IMSS</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_dias_agui" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días de aguinaldo (empresa)</field>
+        <field name="code">FNQT_DIAS_AGUI</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- === Días / antigüedad (override manual) === -->
+    <record id="input_fnqt_dias_lab" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días laborados (override)</field>
+        <field name="code">FNQT_DIAS_LAB</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_anios_antig" model="hr.payslip.input.type">
+        <field name="name">FNQT · Años de antigüedad (override)</field>
+        <field name="code">FNQT_ANIOS_ANTIG</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_dias_vac_base" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días base vacaciones (override)</field>
+        <field name="code">FNQT_DIAS_VAC_BASE</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- === Saldos pendientes === -->
+    <record id="input_fnqt_vac_pend" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días de vacaciones pendientes</field>
+        <field name="code">FNQT_VAC_PEND</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_pv_pend" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días de prima vacacional pendiente</field>
+        <field name="code">FNQT_PV_PEND</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- === Interruptores (1 = SI / 0 = NO) === -->
+    <record id="input_fnqt_ind_90" model="hr.payslip.input.type">
+        <field name="name">FNQT · Indemnización 90 días (1=SI)</field>
+        <field name="code">FNQT_IND_90</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_ind_20" model="hr.payslip.input.type">
+        <field name="name">FNQT · Indemnización 20 días por año (1=SI)</field>
+        <field name="code">FNQT_IND_20</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_prima_ant" model="hr.payslip.input.type">
+        <field name="name">FNQT · Prima de antigüedad (1=SI)</field>
+        <field name="code">FNQT_PRIMA_ANT</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_agui_pagado" model="hr.payslip.input.type">
+        <field name="name">FNQT · Aguinaldo ya pagado (1=SI)</field>
+        <field name="code">FNQT_AGUI_PAGADO</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_factor_liq" model="hr.payslip.input.type">
+        <field name="name">FNQT · Factor de liquidación (1 = 100%)</field>
+        <field name="code">FNQT_FACTOR_LIQ</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_factor_isr" model="hr.payslip.input.type">
+        <field name="name">FNQT · Factor de proporción ISR (def. 4.3429)</field>
+        <field name="code">FNQT_FACTOR_ISR</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- === Otras percepciones / deducciones === -->
+    <record id="input_fnqt_otras_perc" model="hr.payslip.input.type">
+        <field name="name">FNQT · Otras percepciones</field>
+        <field name="code">FNQT_OTRAS_PERC</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_infonavit" model="hr.payslip.input.type">
+        <field name="name">FNQT · INFONAVIT</field>
+        <field name="code">FNQT_INFONAVIT</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_fonacot" model="hr.payslip.input.type">
+        <field name="name">FNQT · FONACOT</field>
+        <field name="code">FNQT_FONACOT</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_otras_ded" model="hr.payslip.input.type">
+        <field name="name">FNQT · Otras deducciones</field>
+        <field name="code">FNQT_OTRAS_DED</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- === ISN (Impuesto Sobre Nominas, costo patronal) ===
+         NO se descuenta al trabajador: es impuesto estatal a cargo del patrón.
+         Si la entrada no se captura o va en 0, el ISN NO aplica (caso actual).
+         La tasa varía por estado, por eso se captura aquí. -->
+    <record id="input_fnqt_isn_tasa" model="hr.payslip.input.type">
+        <field name="name">FNQT · Tasa ISN % (0 = no aplica)</field>
+        <field name="code">FNQT_ISN_TASA</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <record id="input_fnqt_isn_excl_sep" model="hr.payslip.input.type">
+        <field name="name">FNQT · Excluir separación de base ISN (1=SI)</field>
+        <field name="code">FNQT_ISN_EXCL_SEP</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+</odoo>

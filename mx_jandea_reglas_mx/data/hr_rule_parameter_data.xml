@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- =======================================================================
+         PARÁMETROS FISCALES (versionados por año)
+         Se leen con payslip._rule_parameter('mx_jandea_uma') / ('mx_jandea_smg').
+
+         Para actualizar cada año NO se toca código: se agrega un nuevo
+         hr.rule.parameter.value con su date_from desde
+         Nómina → Configuración → Parámetros de Reglas.
+
+         noupdate="1" para no pisar ajustes manuales al actualizar el módulo.
+         ======================================================================= -->
+    <data noupdate="1">
+
+        <record id="rule_param_uma" model="hr.rule.parameter">
+            <field name="name">MX Jandea · UMA diaria</field>
+            <field name="code">mx_jandea_uma</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+
+        <!-- UMA 2026: $117.31 diarios (INEGI, DOF 09/01/2026, vigente 01/02/2026) -->
+        <record id="rule_param_uma_2026" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_uma"/>
+            <field name="date_from" eval="'2026-02-01'"/>
+            <field name="parameter_value">117.31</field>
+        </record>
+
+        <!-- UMA 2025: $113.14 diarios -->
+        <record id="rule_param_uma_2025" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_uma"/>
+            <field name="date_from" eval="'2025-02-01'"/>
+            <field name="parameter_value">113.14</field>
+        </record>
+
+        <record id="rule_param_smg" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Salario mínimo general diario</field>
+            <field name="code">mx_jandea_smg</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+
+        <!-- SMG 2026 zona general: $315.04 diarios (CONASAMI, vigente 01/01/2026).
+             Zona Libre Frontera Norte: $440.87 — si la empresa está en ZLFN,
+             agrega un valor propio o ajusta este parámetro. -->
+        <record id="rule_param_smg_2026" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_smg"/>
+            <field name="date_from" eval="'2026-01-01'"/>
+            <field name="parameter_value">315.04</field>
+        </record>
+
+        <!-- SMG 2025 zona general: $278.80 diarios -->
+        <record id="rule_param_smg_2025" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_smg"/>
+            <field name="date_from" eval="'2025-01-01'"/>
+            <field name="parameter_value">278.80</field>
+        </record>
+
+    </data>
+</odoo>
