@@ -150,7 +150,19 @@ pv_prop = vac_prop * 0.25
 vac_pend = _in('FNQT_VAC_PEND', 0.0)
 pv_pend = _in('FNQT_PV_PEND', 0.0)
 
-sd_real = version.wage / 30.0
+# El recibo puede no tener version/contrato asignado ("Version: False").
+# En ese caso el sueldo se toma del contrato del empleado o queda en 0,
+# en vez de reventar con AttributeError.
+_wage = 0.0
+for _o in (version, employee):
+    try:
+        _w = getattr(_o, 'wage', False) or getattr(_o, 'contract_wage', False)
+    except Exception:
+        _w = False
+    if _w:
+        _wage = _w
+        break
+sd_real = _wage / 30.0
 sdi_real = sd_real
 sd_imss = _in('FNQT_SD_IMSS', 0.0) or sd_real
 sdi_imss = _in('FNQT_SDI_IMSS', 0.0) or sd_imss

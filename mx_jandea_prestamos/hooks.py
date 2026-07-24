@@ -8,6 +8,28 @@ _logger = logging.getLogger(__name__)
 RULE_CODE = 'PRESTAMO'
 
 
+def build_rule_code():
+    """Código Python de la regla de descuento de préstamo.
+
+    En Odoo 19 ``inputs`` es un diccionario, por lo que el acceso por atributo
+    (``inputs.PRESTAMO``) lanza AttributeError. Se accede por clave y se
+    protege el caso de que la entrada no exista en el recibo.
+
+    El signo negativo hace que el préstamo reste del neto (convención estándar
+    de deducciones en Odoo).
+    """
+    return (
+        "# Descuento de prestamo tomado del ajuste salarial (hr.salary.attachment)\n"
+        "# Odoo 19: 'inputs' es un dict. El acceso por atributo\n"
+        "# (inputs.%(c)s) lanza AttributeError, por eso se accede por clave.\n"
+        "try:\n"
+        "    _entrada = inputs['%(c)s']\n"
+        "except Exception:\n"
+        "    _entrada = None\n"
+        "result = -(_entrada.amount) if _entrada else 0.0"
+    ) % {'c': RULE_CODE}
+
+
 def post_init_attach_rule(env):
     """Crea la regla salarial de Préstamo en cada estructura de nómina existente.
 
@@ -45,14 +67,7 @@ def post_init_attach_rule(env):
     Rule = env['hr.salary.rule']
     structures = env['hr.payroll.structure'].search([])
 
-    # El signo negativo hace que el préstamo reste del neto (convención estándar
-    # de deducciones en Odoo). Si en tu estructura el neto sumara las
-    # deducciones con signo propio, cambia a: result = inputs.PRESTAMO.amount
-    python_code = (
-        "# Descuento de préstamo tomado del ajuste salarial (hr.salary.attachment)\n"
-        "result = -(inputs.%s.amount) if inputs.%s else 0.0"
-        % (RULE_CODE, RULE_CODE)
-    )
+    python_code = build_rule_code()
 
     created = 0
     for struct in structures:
