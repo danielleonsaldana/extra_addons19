@@ -75,7 +75,7 @@ CONCEPTOS_ES = {
     'FNQT_AGUINALDO': 'Aguinaldo Proporcional',
     'FNQT_VACACIONES': 'Vacaciones',
     'FNQT_PRIMA_VAC': 'Prima Vacacional',
-    'FNQT_IND90': 'Indemnización 90 Días',
+    'FNQT_IND90': 'Indemnización Constitucional',
     'FNQT_IND20': 'Indemnización 20 Días por Año',
     'FNQT_PRIMA_ANT': 'Prima de Antigüedad',
     'FNQT_OTRAS_PERC': 'Otras Percepciones',
@@ -228,12 +228,11 @@ class ReportReciboNomina(models.AbstractModel):
     def _dias_periodo(self, payslip):
         """Días a imprimir en el recibo.
 
-        Nómina ordinaria: días COMPLETOS del período según la periodicidad
-        (15 quincenal, 7 semanal...), aunque el trabajador haya tenido faltas;
-        las faltas se reflejan en los importes, no en los días.
-
-        Finiquito: días REALMENTE TRABAJADOS hasta la baja, porque el
-        trabajador no cubrió el período completo.
+        Días COMPLETOS del período según la periodicidad de la nómina
+        (15 quincenal, 7 semanal, 14 catorcenal, 30 mensual...), tanto en la
+        nómina ordinaria como en el FINIQUITO. Las faltas, incapacidades o
+        una baja a mitad de período se reflejan en los IMPORTES (salario
+        pendiente = días efectivamente laborados), no en los días del período.
         """
         version = getattr(payslip, 'version_id', False) or \
             getattr(payslip, 'contract_id', False)
@@ -241,9 +240,6 @@ class ReportReciboNomina(models.AbstractModel):
         if not schedule:
             schedule = getattr(payslip, 'schedule_pay', False)
         etiqueta = PERIODICIDAD_ES.get(schedule, '')
-
-        if self._es_finiquito(payslip):
-            return self._dias_trabajados(payslip), etiqueta
 
         dias = DIAS_POR_PERIODICIDAD.get(schedule)
         if dias:
@@ -276,9 +272,14 @@ class ReportReciboNomina(models.AbstractModel):
                 continue
             if not linea.total:
                 continue
+            nombre = CONCEPTOS_ES.get(linea.code) or linea.name
+            # La indemnización constitucional muestra los días realmente
+            # pagados (90 por defecto; 60, 45, etc. si se capturaron).
+            if linea.code == 'FNQT_IND90' and linea.quantity:
+                nombre = '%s (%d días)' % (nombre, int(round(linea.quantity)))
             item = {
                 'codigo': linea.code,
-                'nombre': CONCEPTOS_ES.get(linea.code) or linea.name,
+                'nombre': nombre,
                 'cantidad': linea.quantity,
                 'importe': abs(linea.total),
             }

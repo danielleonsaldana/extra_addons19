@@ -28,7 +28,8 @@ FNQT_INPUT_CODES = [
     'FNQT_DIAS_SAL', 'FNQT_SD_IMSS', 'FNQT_SDI_IMSS', 'FNQT_DIAS_AGUI',
     'FNQT_DIAS_LAB', 'FNQT_ANIOS_ANTIG', 'FNQT_DIAS_VAC_BASE',
     'FNQT_VAC_PEND', 'FNQT_PV_PEND',
-    'FNQT_IND_90', 'FNQT_IND_20', 'FNQT_PRIMA_ANT', 'FNQT_AGUI_PAGADO',
+    'FNQT_IND_90', 'FNQT_IND_DIAS', 'FNQT_IND_20', 'FNQT_PRIMA_ANT',
+    'FNQT_AGUI_PAGADO',
     'FNQT_FACTOR_LIQ', 'FNQT_FACTOR_ISR',
     'FNQT_OTRAS_PERC', 'FNQT_INFONAVIT', 'FNQT_FONACOT', 'FNQT_OTRAS_DED',
     'FNQT_ISN_TASA', 'FNQT_ISN_EXCL_SEP',
@@ -192,6 +193,9 @@ if not dias_sal:
 factor_liq = _in('FNQT_FACTOR_LIQ', 0.0) or 1.0
 agui_pagado = _in('FNQT_AGUI_PAGADO', 0.0)
 ind_90 = _in('FNQT_IND_90', 0.0)
+# Dias de indemnizacion constitucional. Ley = 90 (100%). Se puede pedir 60,
+# 45, etc. Se combina con factor_liq (porcentaje): dias * SDI * factor_liq.
+ind_dias = _in('FNQT_IND_DIAS', 0.0) or 90.0
 ind_20 = _in('FNQT_IND_20', 0.0)
 prima_ant_on = _in('FNQT_PRIMA_ANT', 0.0)
 
@@ -200,7 +204,7 @@ p_salario_r = dias_sal * sd_real
 p_agui_r = 0.0 if agui_pagado else sd_real * agui_prop
 p_vac_r = (vac_prop + vac_pend) * sd_real
 p_pv_r = ((vac_prop + pv_pend) * 0.25) * sd_real
-p_ind90_r = (90.0 * sdi_real if ind_90 else 0.0) * factor_liq
+p_ind90_r = (ind_dias * sdi_real if ind_90 else 0.0) * factor_liq
 p_ind20_r = ((sd_real * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq
 _tope_pa = SMG * 2.0
 p_pant_r = 0.0
@@ -214,7 +218,7 @@ p_salario_i = dias_sal * sd_imss
 p_agui_i = 0.0 if agui_pagado else sd_imss * agui_prop
 p_vac_i = (vac_prop + vac_pend) * sd_imss
 p_pv_i = pv_prop * sd_imss
-p_ind90_i = (90.0 * sdi_imss if ind_90 else 0.0) * factor_liq
+p_ind90_i = (ind_dias * sdi_imss if ind_90 else 0.0) * factor_liq
 p_ind20_i = ((sdi_imss * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq
 p_pant_i = 0.0
 if prima_ant_on:
@@ -314,8 +318,8 @@ def _rules_spec():
             'ALW', 40, p + '\nresult = p_pv_r\n'
         ),
         (
-            'rule_fnqt_ind90', 'Indemnización 90 Días', 'FNQT_IND90',
-            'ALW', 50, p + '\nresult = p_ind90_r\n'
+            'rule_fnqt_ind90', 'Indemnización Constitucional', 'FNQT_IND90',
+            'ALW', 50, p + '\nresult = p_ind90_r\nresult_qty = ind_dias if ind_90 else 0.0\n'
         ),
         (
             'rule_fnqt_ind20', 'Indemnización 20 Días por Año', 'FNQT_IND20',

@@ -71,8 +71,18 @@
 
     <!-- === Interruptores (1 = SI / 0 = NO) === -->
     <record id="input_fnqt_ind_90" model="hr.payslip.input.type">
-        <field name="name">FNQT · Indemnización 90 días (1=SI)</field>
+        <field name="name">FNQT · Indemnización constitucional (1=SI)</field>
         <field name="code">FNQT_IND_90</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
+    <!-- Días de indemnización constitucional. Por omisión 90 (100% de ley).
+         Se puede capturar 60, 45, etc. para pagar días distintos. Es
+         independiente del FNQT_FACTOR_LIQ (porcentaje): ambos se multiplican,
+         de modo que 45 días al 100% == 90 días al 50%. -->
+    <record id="input_fnqt_ind_dias" model="hr.payslip.input.type">
+        <field name="name">FNQT · Días de indemnización (def. 90)</field>
+        <field name="code">FNQT_IND_DIAS</field>
         <field name="country_id" ref="base.mx"/>
     </record>
 
