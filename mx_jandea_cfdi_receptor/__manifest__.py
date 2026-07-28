@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Validación de Receptor CFDI',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'summary': 'Advierte y pide confirmación cuando el Receptor de un CFDI no '
                'coincide con la empresa a la que se sube',
     'description': """

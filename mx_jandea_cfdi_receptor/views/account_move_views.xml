@@ -8,17 +8,25 @@
         <field name="arch" type="xml">
             <xpath expr="//sheet" position="before">
                 <field name="mx_cfdi_receptor_mismatch" invisible="1"/>
+                <field name="mx_cfdi_folio_duplicado" invisible="1"/>
                 <div class="alert alert-warning mb-0" role="alert"
-                     invisible="not mx_cfdi_receptor_mismatch or mx_cfdi_receptor_ok">
-                    <strong>El receptor del CFDI no corresponde a esta empresa.</strong>
-                    El XML está dirigido a
-                    <field name="mx_cfdi_receptor_nombre" readonly="1" class="oe_inline" nolabel="1"/>
-                    (RFC <field name="mx_cfdi_receptor_rfc" readonly="1" class="oe_inline" nolabel="1"/>),
-                    no a la empresa actual.
-                    Si aun así deseas registrar la factura aquí, marca
-                    <field name="mx_cfdi_receptor_ok" class="oe_inline"/>
-                    <strong>Cargar de todos modos</strong>.
-                    De lo contrario, cancela o elimina esta factura.
+                     invisible="(not mx_cfdi_receptor_mismatch and not mx_cfdi_folio_duplicado) or mx_cfdi_receptor_ok">
+                    <div invisible="not mx_cfdi_receptor_mismatch">
+                        <strong>El receptor del CFDI no corresponde a esta empresa.</strong>
+                        El XML está dirigido a
+                        <field name="mx_cfdi_receptor_nombre" readonly="1" class="oe_inline" nolabel="1"/>
+                        (RFC <field name="mx_cfdi_receptor_rfc" readonly="1" class="oe_inline" nolabel="1"/>),
+                        no a la empresa actual.
+                    </div>
+                    <div invisible="not mx_cfdi_folio_duplicado">
+                        <strong>El folio fiscal ya está registrado en esta empresa.</strong>
+                        UUID <field name="mx_cfdi_folio_fiscal" readonly="1" class="oe_inline" nolabel="1"/>.
+                    </div>
+                    <div class="mt-1">
+                        Si aun así deseas registrarla, marca
+                        <field name="mx_cfdi_receptor_ok" class="oe_inline"/>
+                        <strong>Cargar de todos modos</strong>. De lo contrario, cancela o elimina esta factura.
+                    </div>
                 </div>
             </xpath>
         </field>
