@@ -68,6 +68,18 @@ class MxJandeaNominaReporteWizard(models.TransientModel):
             result[rec.columna] = codes
         return result
 
+    def _get_destinos(self):
+        """dict columna -> destino ('empleado'/'cliente'). Empresa gana a global.
+        Las columnas sin fila de mapeo quedan por defecto en 'empleado'."""
+        Map = self.env['mx.jandea.nomina.reporte.map'].sudo()
+        recs = Map.search([
+            '|', ('company_id', '=', False), ('company_id', '=', self.company_id.id),
+        ])
+        result = {}
+        for rec in recs.sorted(key=lambda r: 1 if r.company_id else 0):
+            result[rec.columna] = rec.destino or 'empleado'
+        return result
+
     @staticmethod
     def _emp_val(employee, *field_names):
         for fname in field_names:
@@ -119,6 +131,7 @@ class MxJandeaNominaReporteWizard(models.TransientModel):
             'dias': dias,
             'sueldo_real': sueldo_real,
             'total_percepciones': cat_totals.get('GROSS', 0.0),
+            'neto_empleado': cat_totals.get('NET', 0.0),
         }
         for key, _label, tipo in COLUMNAS_REPORTE:
             if key == 'sueldo' and not mapa.get('sueldo'):
@@ -137,22 +150,51 @@ class MxJandeaNominaReporteWizard(models.TransientModel):
 
         slips = self._get_payslips()
         mapa = self._get_map()
+        destinos = self._get_destinos()
         rows = [self._build_row(s, mapa) for s in slips]
 
-        # Encabezados en el orden del ejemplo
-        headers = ['Clave', 'Nombre completo', 'RFC', 'CURP', 'Afiliación IMSS',
-                   'Días Laborados', 'Sueldo Real']
-        perc = [(k, lbl) for (k, lbl, t) in COLUMNAS_REPORTE if t == 'P']
-        ded = [(k, lbl) for (k, lbl, t) in COLUMNAS_REPORTE if t == 'D']
-        headers += [lbl for (_k, lbl) in perc]
-        headers += ['Total Percepciones']
-        headers += [lbl for (_k, lbl) in ded]
+        def _dest(k):
+            return destinos.get(k, 'empleado')
 
-        # Orden de claves para leer cada fila
-        keys = ['clave', 'nombre', 'rfc', 'curp', 'imss', 'dias', 'sueldo_real']
-        keys += [k for (k, _l) in perc]
-        keys += ['total_percepciones']
-        keys += [k for (k, _l) in ded]
+        emp_cols = [(k, lbl, t) for (k, lbl, t) in COLUMNAS_REPORTE
+                    if _dest(k) == 'empleado']
+        cli_cols = [(k, lbl, t) for (k, lbl, t) in COLUMNAS_REPORTE
+                    if _dest(k) == 'cliente']
+
+        # Total a cliente por empleado = percepciones cliente - deducciones cliente.
+        cli_perc_keys = [k for (k, _l, t) in cli_cols if t == 'P']
+        cli_ded_keys = [k for (k, _l, t) in cli_cols if t == 'D']
+        for row in rows:
+            row['__total_cliente__'] = (
+                sum(row.get(k, 0.0) for k in cli_perc_keys)
+                - sum(row.get(k, 0.0) for k in cli_ded_keys)
+            )
+
+        # --- Plan de columnas: identificación + bloque empleado + bloque cliente
+        columns = [
+            {'label': 'Clave', 'key': 'clave', 'type': 'text'},
+            {'label': 'Nombre completo', 'key': 'nombre', 'type': 'text'},
+            {'label': 'RFC', 'key': 'rfc', 'type': 'text'},
+            {'label': 'CURP', 'key': 'curp', 'type': 'text'},
+            {'label': 'Afiliación IMSS', 'key': 'imss', 'type': 'text'},
+            {'label': 'Días Laborados', 'key': 'dias', 'type': 'int'},
+            {'label': 'Sueldo Real', 'key': 'sueldo_real', 'type': 'money'},
+        ]
+        ident_end = len(columns) - 1
+
+        emp_start = len(columns)
+        for (k, lbl, _t) in emp_cols:
+            columns.append({'label': lbl, 'key': k, 'type': 'money'})
+        columns.append({'label': 'Neto Empleado', 'key': 'neto_empleado', 'type': 'money'})
+        emp_end = len(columns) - 1
+
+        cli_start = cli_end = None
+        if cli_cols:
+            cli_start = len(columns)
+            for (k, lbl, _t) in cli_cols:
+                columns.append({'label': lbl, 'key': k, 'type': 'money'})
+            columns.append({'label': 'Total a Cliente', 'key': '__total_cliente__', 'type': 'money'})
+            cli_end = len(columns) - 1
 
         buffer = io.BytesIO()
         wb = xlsxwriter.Workbook(buffer, {'in_memory': True})
@@ -164,6 +206,12 @@ class MxJandeaNominaReporteWizard(models.TransientModel):
             'bold': True, 'bg_color': '#1F4E78', 'font_color': 'white',
             'border': 1, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center',
         })
+        f_blk_id = wb.add_format({'bold': True, 'bg_color': '#404040', 'font_color': 'white',
+                                  'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        f_blk_emp = wb.add_format({'bold': True, 'bg_color': '#2E7D32', 'font_color': 'white',
+                                   'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        f_blk_cli = wb.add_format({'bold': True, 'bg_color': '#B45309', 'font_color': 'white',
+                                   'border': 1, 'align': 'center', 'valign': 'vcenter'})
         f_text = wb.add_format({'border': 1})
         f_num = wb.add_format({'border': 1, 'num_format': '#,##0.00'})
         f_int = wb.add_format({'border': 1, 'num_format': '0'})
@@ -181,48 +229,60 @@ class MxJandeaNominaReporteWizard(models.TransientModel):
         ws.write(1, 0, '%s  |  %s  |  %s empleados' % (
             self.company_id.name, periodo, len(rows)), f_sub)
 
-        head_row = 3
-        for col, title in enumerate(headers):
-            ws.write(head_row, col, title, f_head)
+        title_row = 3
+        head_row = 4
+
+        def _blk(c0, c1, txt, fmt):
+            if c1 > c0:
+                ws.merge_range(title_row, c0, title_row, c1, txt, fmt)
+            else:
+                ws.write(title_row, c0, txt, fmt)
+
+        _blk(0, ident_end, 'IDENTIFICACIÓN', f_blk_id)
+        _blk(emp_start, emp_end, 'IMPORTES A EMPLEADO', f_blk_emp)
+        if cli_cols:
+            _blk(cli_start, cli_end, 'IMPORTES A CLIENTE', f_blk_cli)
+
+        for col, c in enumerate(columns):
+            ws.write(head_row, col, c['label'], f_head)
 
         # Anchos: identificación más ancha
         ws.set_column(0, 0, 8)
         ws.set_column(1, 1, 28)
         ws.set_column(2, 4, 16)
-        ws.set_column(5, len(headers) - 1, 13)
+        ws.set_column(5, len(columns) - 1, 13)
 
-        numeric_from = 5  # 'Días Laborados' en adelante son numéricos
         r = head_row + 1
         for row in rows:
-            for col, key in enumerate(keys):
-                val = row[key]
-                if col < 5:
+            for col, c in enumerate(columns):
+                val = row.get(c['key'])
+                if c['type'] == 'text':
                     ws.write(r, col, val or '', f_text)
-                elif key == 'dias':
+                elif c['type'] == 'int':
                     ws.write_number(r, col, val or 0, f_int)
                 else:
                     ws.write_number(r, col, val or 0.0, f_num)
             r += 1
 
-        # Fila de totales
+        # Fila de totales (suma solo columnas de dinero).
         ws.write(r, 0, 'TOTALES', f_tot_lbl)
-        for col in range(1, len(keys)):
-            if col < 5:
-                ws.write(r, col, '', f_tot_lbl)
-            elif keys[col] == 'dias':
-                ws.write(r, col, '', f_tot_lbl)
-            else:
-                col_letter = xlsxwriter.utility.xl_col_to_name(col)
+        for col, c in enumerate(columns):
+            if col == 0:
+                continue
+            if c['type'] == 'money':
+                letter = xlsxwriter.utility.xl_col_to_name(col)
                 ws.write_formula(
                     r, col,
-                    '=SUM(%s%d:%s%d)' % (col_letter, head_row + 2, col_letter, r),
+                    '=SUM(%s%d:%s%d)' % (letter, head_row + 2, letter, r),
                     f_tot)
+            else:
+                ws.write(r, col, '', f_tot_lbl)
 
         ws.freeze_panes(head_row + 1, 2)
         wb.close()
         buffer.seek(0)
 
-        fname = 'Listado_Nomina_%s.xlsx' % (periodo or fields.Date.today()).replace('/', '-').replace(' ', '_')
+        fname = 'Listado_Nomina_%s.xlsx' % (periodo or str(fields.Date.today())).replace('/', '-').replace(' ', '_')
         self.write({
             'archivo': base64.b64encode(buffer.read()),
             'nombre_archivo': fname,

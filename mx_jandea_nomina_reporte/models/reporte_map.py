@@ -42,6 +42,14 @@ class MxJandeaNominaReporteMap(models.Model):
     columna = fields.Selection(
         COLUMNA_SELECTION, string='Columna del reporte', required=True,
     )
+    destino = fields.Selection(
+        [('empleado', 'A Empleado'), ('cliente', 'A Cliente')],
+        string='Destino', required=True, default='empleado',
+        help='"A Empleado": importe que percibe/deduce el trabajador.\n'
+             '"A Cliente": importe que se factura a la empresa cliente '
+             '(costo patronal, comisión, etc.). El Excel los agrupa en bloques '
+             'separados con subtotal propio.',
+    )
     codes = fields.Char(
         'Códigos de regla',
         help='Códigos de reglas salariales (hr.salary.rule) cuyo importe se '

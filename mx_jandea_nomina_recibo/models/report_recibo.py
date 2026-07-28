@@ -277,6 +277,10 @@ class ReportReciboNomina(models.AbstractModel):
             # pagados (90 por defecto; 60, 45, etc. si se capturaron).
             if linea.code == 'FNQT_IND90' and linea.quantity:
                 nombre = '%s (%d días)' % (nombre, int(round(linea.quantity)))
+            # El salario pendiente muestra los días pagados (admite más de 15:
+            # varias quincenas atrasadas capturadas en FNQT_DIAS_SAL).
+            elif linea.code == 'FNQT_SALARIO' and linea.quantity:
+                nombre = '%s (%s días)' % (nombre, round(linea.quantity, 2))
             item = {
                 'codigo': linea.code,
                 'nombre': nombre,

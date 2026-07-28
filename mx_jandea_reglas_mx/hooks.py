@@ -303,7 +303,7 @@ def _rules_spec():
         # ---------------- PERCEPCIONES ----------------
         (
             'rule_fnqt_salario', 'Salario Pendiente', 'FNQT_SALARIO',
-            'BASIC', 10, p + '\nresult = p_salario_r\n'
+            'BASIC', 10, p + '\nresult = p_salario_r\nresult_qty = dias_sal\n'
         ),
         (
             'rule_fnqt_aguinaldo', 'Aguinaldo Proporcional', 'FNQT_AGUINALDO',

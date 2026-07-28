@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reporte Listado de Nómina (Excel)',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'summary': 'Genera el Listado de Nómina en Excel (percepciones y deducciones por empleado)',
     'description': """
         Exporta a Excel el Listado de Nómina con el mismo formato del ejemplo:

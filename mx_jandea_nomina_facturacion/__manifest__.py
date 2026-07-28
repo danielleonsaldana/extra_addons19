@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Facturación de Nómina entre Empresas',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'summary': 'Genera Orden de Venta (y factura) entre empresas a partir de la nómina, con conceptos y comisión configurables',
     'description': """
         A partir de la nómina de una empresa (la de la nómina = CLIENTE/receptor),

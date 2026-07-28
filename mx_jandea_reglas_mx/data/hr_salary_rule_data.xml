@@ -11,19 +11,29 @@ def find_rates(x, rates):
         if low &lt;= x &lt;= high:
             return low, high, fix, rate
     # Guard: si GROSS no cae en ningún rango (ej. GROSS=0) usa el primer tramo
-    return rates[0]
+    return rates[0] if rates else (0.0, 0.0, 0.0, 0.0)
 
 gross = categories['GROSS']
 result = 0
-if gross and gross &gt; 0:
-    isr_table = payslip._rule_parameter('l10n_mx_isr_tables')[version.schedule_pay]
-    low, high, fix, rate = find_rates(gross, isr_table)
-    result = -((gross - low) * rate + fix)
 
-period_factor = payslip._rule_parameter('l10n_mx_schedule_table')[version.schedule_pay]
+# Periodicidad segura: 'version' puede no existir (recibo sin contrato) y el
+# parametro puede no tener la clave. Con TODAS las faltas GROSS=0: el recibo
+# se calcula igual (ISR 0) sin reventar ninguna formula.
+_sched = getattr(version, 'schedule_pay', False) \
+    or getattr(payslip, 'schedule_pay', False) or 'monthly'
+
+if gross and gross &gt; 0:
+    _tables = payslip._rule_parameter('l10n_mx_isr_tables') or {}
+    isr_table = _tables.get(_sched) or _tables.get('monthly') or []
+    if isr_table:
+        low, high, fix, rate = find_rates(gross, isr_table)
+        result = -((gross - low) * rate + fix)
+
+_sched_tbl = payslip._rule_parameter('l10n_mx_schedule_table') or {}
+period_factor = _sched_tbl.get(_sched, 30) or 30
 if period_factor &gt;= 15:
     period_factor = (period_factor / 30) * (365 / 12)
-min_wage = payslip._rule_parameter('l10n_mx_daily_min_wage') * period_factor
+min_wage = (payslip._rule_parameter('l10n_mx_daily_min_wage') or 0.0) * period_factor
 
 if gross &lt;= min_wage:
     result_qty = 0.0
@@ -55,7 +65,7 @@ if gross &lt;= min_wage:
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
 dias_periodo = (payslip.date_to - payslip.date_from).days + 1
-salario_diario = version.wage / dias_periodo
+salario_diario = ((version and version.wage) or 0.0) / (dias_periodo or 1)
 horas_diarias = version.resource_calendar_id.hours_per_day or 8
 horas = inputs['HRS_EXTRA_DOBLE'].amount
 result = (salario_diario / horas_diarias) * 2 * horas
@@ -73,7 +83,7 @@ result = (salario_diario / horas_diarias) * 2 * horas
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
 dias_periodo = (payslip.date_to - payslip.date_from).days + 1
-salario_diario = version.wage / dias_periodo
+salario_diario = ((version and version.wage) or 0.0) / (dias_periodo or 1)
 horas_diarias = version.resource_calendar_id.hours_per_day or 8
 horas = inputs['HRS_EXTRA_TRIPLE'].amount
 result = (salario_diario / horas_diarias) * 3 * horas
@@ -91,7 +101,7 @@ result = (salario_diario / horas_diarias) * 3 * horas
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
 dias_periodo = (payslip.date_to - payslip.date_from).days + 1
-salario_diario = version.wage / dias_periodo
+salario_diario = ((version and version.wage) or 0.0) / (dias_periodo or 1)
 dias = inputs['DIAS_FESTIVO'].amount
 result = salario_diario * 3 * dias
         </field>
@@ -108,7 +118,7 @@ result = salario_diario * 3 * dias
         <field name="amount_select">code</field>
         <field name="amount_python_compute">
 dias_periodo = (payslip.date_to - payslip.date_from).days + 1
-salario_diario = version.wage / dias_periodo
+salario_diario = ((version and version.wage) or 0.0) / (dias_periodo or 1)
 domingos = inputs['DOMINGOS_PRIMA_DOM'].amount
 result = salario_diario * domingos * 0.25
         </field>

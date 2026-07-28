@@ -39,6 +39,19 @@ class MxJandeaNominaFacturacionWizard(models.TransientModel):
         help='Por defecto el contacto de la empresa de la nómina. Editable.',
     )
 
+    # Qué hacer al generar. 'facturar' deja la factura PUBLICADA (posteada),
+    # por lo que el PDF ya NO muestra la leyenda "Borrador".
+    accion_final = fields.Selection(
+        [
+            ('orden', 'Solo orden de venta (borrador)'),
+            ('confirmar', 'Confirmar orden de venta'),
+            ('facturar', 'Confirmar y publicar factura (sin "Borrador")'),
+        ],
+        string='Al generar', required=True, default='facturar',
+        help='"Confirmar y publicar factura" crea la factura y la publica, '
+             'de modo que el documento impreso no lleva la leyenda "Borrador".',
+    )
+
     # ------------------------------------------------------------------ #
     #  Resultado del cálculo (solo lectura, informativo)
     # ------------------------------------------------------------------ #
@@ -231,6 +244,34 @@ class MxJandeaNominaFacturacionWizard(models.TransientModel):
         # Forzamos el precio calculado (evita que la lista de precios lo recalcule).
         for wline, oline in zip(self.linea_ids, order.order_line):
             oline.with_company(emisor).price_unit = wline.precio_unitario
+
+        # ---- Confirmar / facturar según la acción elegida ----------------- #
+        # 'facturar' publica la factura para que el PDF no lleve "Borrador".
+        if self.accion_final in ('confirmar', 'facturar'):
+            order.with_company(emisor).action_confirm()
+
+        if self.accion_final == 'facturar':
+            try:
+                invoices = order.with_company(emisor)._create_invoices()
+                if invoices:
+                    invoices.action_post()
+                    inv = invoices[0]
+                    return {
+                        'type': 'ir.actions.act_window',
+                        'name': _('Factura publicada'),
+                        'res_model': 'account.move',
+                        'res_id': inv.id,
+                        'view_mode': 'form',
+                        'target': 'current',
+                    }
+            except Exception as e:
+                # No abortamos: la orden ya quedó confirmada. Se avisa para que
+                # se revise (impuestos, cuentas, diario) y se facture a mano.
+                raise UserError(_(
+                    'La orden de venta se confirmó, pero la factura no se pudo '
+                    'publicar automáticamente:\n\n%s\n\n'
+                    'Revisa impuestos/cuentas del producto o el diario de ventas '
+                    'de la empresa emisora y factura la orden manualmente.', e))
 
         return {
             'type': 'ir.actions.act_window',

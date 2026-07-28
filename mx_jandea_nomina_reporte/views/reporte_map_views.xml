@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <list string="Mapeo de columnas" editable="bottom">
                 <field name="columna"/>
+                <field name="destino"/>
                 <field name="codes"/>
                 <field name="company_id"/>
                 <field name="notas"/>

@@ -22,6 +22,7 @@
                     <group string="Facturación">
                         <field name="company_emisor_id" options="{'no_create': True}"/>
                         <field name="partner_id"/>
+                        <field name="accion_final" widget="radio"/>
                         <field name="currency_id" invisible="1"/>
                     </group>
                 </group>
@@ -57,7 +58,7 @@
                             type="object" class="btn-primary" invisible="calculado"/>
                     <button name="action_calcular" string="Recalcular"
                             type="object" invisible="not calculado"/>
-                    <button name="action_generar_orden" string="Generar Orden de Venta"
+                    <button name="action_generar_orden" string="Generar"
                             type="object" class="btn-primary" invisible="not calculado"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
