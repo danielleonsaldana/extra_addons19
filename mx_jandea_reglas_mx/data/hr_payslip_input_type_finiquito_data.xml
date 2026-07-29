@@ -31,6 +31,15 @@
         <field name="country_id" ref="base.mx"/>
     </record>
 
+    <!-- SDI "real" (columna REAL). Por omisión se calcula con el factor de
+         integración (aguinaldo + prima vacacional). Se captura solo si el SBC
+         real trae partes variables (bonos, comisiones, etc.). -->
+    <record id="input_fnqt_sdi_real" model="hr.payslip.input.type">
+        <field name="name">FNQT · Salario diario integrado (real)</field>
+        <field name="code">FNQT_SDI_REAL</field>
+        <field name="country_id" ref="base.mx"/>
+    </record>
+
     <record id="input_fnqt_dias_agui" model="hr.payslip.input.type">
         <field name="name">FNQT · Días de aguinaldo (empresa)</field>
         <field name="code">FNQT_DIAS_AGUI</field>
