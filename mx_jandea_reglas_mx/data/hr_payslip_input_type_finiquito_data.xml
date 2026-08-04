@@ -150,20 +150,7 @@
         <field name="country_id" ref="base.mx"/>
     </record>
 
-    <!-- === ISN (Impuesto Sobre Nominas, costo patronal) ===
-         NO se descuenta al trabajador: es impuesto estatal a cargo del patrón.
-         Si la entrada no se captura o va en 0, el ISN NO aplica (caso actual).
-         La tasa varía por estado, por eso se captura aquí. -->
-    <record id="input_fnqt_isn_tasa" model="hr.payslip.input.type">
-        <field name="name">FNQT · Tasa ISN % (0 = no aplica)</field>
-        <field name="code">FNQT_ISN_TASA</field>
-        <field name="country_id" ref="base.mx"/>
-    </record>
-
-    <record id="input_fnqt_isn_excl_sep" model="hr.payslip.input.type">
-        <field name="name">FNQT · Excluir separación de base ISN (1=SI)</field>
-        <field name="code">FNQT_ISN_EXCL_SEP</field>
-        <field name="country_id" ref="base.mx"/>
-    </record>
+    <!-- ISN eliminado: era impuesto estatal a cargo del patrón; ya no se
+         captura ni aparece en el recibo del empleado. -->
 
 </odoo>

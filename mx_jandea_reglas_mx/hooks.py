@@ -33,7 +33,6 @@ FNQT_INPUT_CODES = [
     'FNQT_AGUI_PAGADO',
     'FNQT_FACTOR_LIQ', 'FNQT_FACTOR_ISR',
     'FNQT_OTRAS_PERC', 'FNQT_INFONAVIT', 'FNQT_FONACOT', 'FNQT_OTRAS_DED',
-    'FNQT_ISN_TASA', 'FNQT_ISN_EXCL_SEP',
 ]
 
 
@@ -112,7 +111,7 @@ if _aniv > fecha_baja:
         _aniv = fecha_alta.replace(year=fecha_baja.year - 1, day=28)
 if _aniv < fecha_alta:
     _aniv = fecha_alta
-dias_vac_base = _in('FNQT_DIAS_VAC_BASE', 0.0) or ((fecha_baja - _aniv).days + 5)
+dias_vac_base = _in('FNQT_DIAS_VAC_BASE', 0.0) or ((fecha_baja - _aniv).days + 1)
 anios_lab = int(round(dias_lab / 365.25))
 anios_antig = _in('FNQT_ANIOS_ANTIG', 0.0) or round(dias_lab / 365.25, 2)
 
@@ -279,7 +278,24 @@ def _isr_tabla():
         (425642.00, 999999999.0, 133488.54, 0.35),
     ]
 
-factor_isr = _in('FNQT_FACTOR_ISR', 0.0) or 4.3429
+factor_isr = _in('FNQT_FACTOR_ISR', 0.0)
+if not factor_isr:
+    # Factor de proporcion mensual segun la periodicidad de pago (mes/dias):
+    #   quincenal 30.4/15 = 2.0267 | catorcenal 30.4/14 = 2.1714
+    #   semanal   30.4/7  = 4.3429 | mensual 1.0
+    # Se toma de version.schedule_pay; si no hay, se asume QUINCENAL.
+    _sp = ''
+    for _o in (version, employee):
+        try:
+            _sp = (getattr(_o, 'schedule_pay', '') or '')
+        except Exception:
+            _sp = ''
+        if _sp:
+            break
+    factor_isr = {
+        'monthly': 1.0, 'semi-monthly': 2.0267, 'bi-weekly': 2.1714,
+        'weekly': 4.3429, 'daily': 30.42,
+    }.get((_sp or '').lower(), 2.0267)
 _bg_mensual = base_gravable * factor_isr
 _isr = 0.0
 if _bg_mensual > 0:
@@ -305,6 +321,10 @@ _ret_dia = (
     + _sbc * 0.01125       # Cesantía y vejez
 )
 _cuota_imss = _ret_dia * dias_sal
+# LSS art. 36: si el trabajador percibe el salario minimo, el patron absorbe
+# la cuota obrera -> retencion 0 (igual que el Excel: IF(SD=SMG,0,...)).
+if sd_imss <= SMG + 0.01:
+    _cuota_imss = 0.0
 '''
 
 
@@ -387,22 +407,8 @@ def _rules_spec():
             'FNQT_INFO_BASE_GRAV', 'PATRONAL', 220,
             p + '\nresult = base_gravable\n'
         ),
-        (
-            # ISN: impuesto estatal A CARGO DEL PATRÓN. No se descuenta al
-            # trabajador, por eso vive en la categoría PATRONAL y no en DED.
-            # Si FNQT_ISN_TASA no se captura o va en 0, el resultado es 0.
-            'rule_fnqt_isn', 'ISN (Impuesto Sobre Nóminas) · costo patronal',
-            'FNQT_ISN', 'PATRONAL', 230,
-            p + '''
-_isn_tasa = _in('FNQT_ISN_TASA', 0.0)
-_isn_base = total_perc_real
-if _in('FNQT_ISN_EXCL_SEP', 0.0):
-    _isn_base = _isn_base - p_ind90_r - p_ind20_r - p_pant_r
-if _isn_base < 0:
-    _isn_base = 0.0
-result = _isn_base * (_isn_tasa / 100.0)
-'''
-        ),
+        # ISN eliminado: es impuesto estatal a cargo del patron; ya no aparece
+        # en el recibo del empleado (migracion 19.0.1.6.0 borra la regla vieja).
     ]
 
 
