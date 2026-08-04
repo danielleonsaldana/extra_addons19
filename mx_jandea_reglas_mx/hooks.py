@@ -52,11 +52,41 @@ FNQT_INPUT_CODES = [
 # ---------------------------------------------------------------------------
 PREAMBLE = '''
 def _in(c, d=0.0):
+    # 1) Via el objeto navegable 'inputs'.
     try:
         v = inputs[c]
-        return v.amount if v else d
+        if v:
+            a = getattr(v, 'amount', None)
+            if a not in (None, False):
+                return a
     except Exception:
-        return d
+        pass
+    # 2) Via acceso por atributo.
+    try:
+        v = getattr(inputs, c, None)
+        if v is not None:
+            a = getattr(v, 'amount', None)
+            if a not in (None, False):
+                return a
+    except Exception:
+        pass
+    # 3) Respaldo DIRECTO: leer la entrada capturada del recibo por codigo.
+    #    En Odoo 19 el objeto 'inputs' a veces no expone las entradas
+    #    manuales; esto garantiza que FNQT_IND_DIAS, FNQT_DIAS_SAL, etc. SI se
+    #    lean cuando el usuario las captura.
+    try:
+        for _il in payslip.input_line_ids:
+            try:
+                _code = _il.input_type_id.code if _il.input_type_id else False
+            except Exception:
+                _code = False
+            if not _code:
+                _code = getattr(_il, 'code', False)
+            if _code == c:
+                return _il.amount
+    except Exception:
+        pass
+    return d
 
 def _param(c, d):
     try:
@@ -81,16 +111,26 @@ for _o, _f in ((version, 'contract_date_end'), (version, 'date_end'),
     if _v and payslip.date_from <= _v <= payslip.date_to:
         fecha_baja = _v
         break
-fecha_alta = False
-for _o, _f in ((version, 'contract_date_start'), (version, 'date_start'),
-               (version, 'date_version'), (employee, 'first_contract_date')):
+_fechas_alta = []
+for _o, _f in ((employee, 'first_contract_date'),
+               (version, 'contract_date_start'), (version, 'date_start'),
+               (version, 'date_version')):
     try:
         _v = getattr(_o, _f, False)
     except Exception:
         _v = False
     if _v:
-        fecha_alta = _v
-        break
+        _fechas_alta.append(_v)
+# La fecha de ALTA (antiguedad) es la MAS ANTIGUA disponible. En Odoo 19 el
+# "version" del contrato puede traer la fecha de una VERSION RECIENTE (un cambio
+# de sueldo, etc.), lo que desinflaria la antiguedad y dejaria aguinaldo /
+# vacaciones diminutos. Tomar el minimo garantiza la fecha real de ingreso.
+fecha_alta = False
+if _fechas_alta:
+    try:
+        fecha_alta = min(_fechas_alta)
+    except Exception:
+        fecha_alta = _fechas_alta[0]
 if not fecha_alta:
     fecha_alta = payslip.date_from
 inicio_anio = fecha_baja.replace(month=1, day=1)
@@ -195,6 +235,21 @@ if not dias_sal:
                 _pagado = True
         if _pagado:
             _wd += _n
+    # Respaldo: si el conteo "pagado" quedo en 0 pero SI hay dias de
+    # asistencia capturados, contar los dias que NO sean ausencia/incapacidad
+    # (para que "Salario Pendiente" refleje los dias trabajados del periodo).
+    if not _wd:
+        for _l in payslip.worked_days_line_ids:
+            _n = _l.number_of_days or 0.0
+            if _n <= 0:
+                continue
+            _es_leave = False
+            try:
+                _es_leave = bool(_l.work_entry_type_id.is_leave)
+            except Exception:
+                _es_leave = False
+            if not _es_leave:
+                _wd += _n
     dias_sal = _wd
 factor_liq = _in('FNQT_FACTOR_LIQ', 0.0) or 1.0
 agui_pagado = _in('FNQT_AGUI_PAGADO', 0.0)
@@ -335,15 +390,15 @@ def _rules_spec():
         # ---------------- PERCEPCIONES ----------------
         (
             'rule_fnqt_salario', 'Salario Pendiente', 'FNQT_SALARIO',
-            'BASIC', 10, p + '\nresult = p_salario_r\nresult_qty = dias_sal\n'
+            'BASIC', 10, p + '\nresult = sd_real\nresult_qty = dias_sal\n'
         ),
         (
             'rule_fnqt_aguinaldo', 'Aguinaldo Proporcional', 'FNQT_AGUINALDO',
-            'ALW', 20, p + '\nresult = p_agui_r\nresult_qty = agui_prop\n'
+            'ALW', 20, p + '\nresult = (0.0 if agui_pagado else sd_real)\nresult_qty = agui_prop\n'
         ),
         (
             'rule_fnqt_vacaciones', 'Vacaciones', 'FNQT_VACACIONES',
-            'ALW', 30, p + '\nresult = p_vac_r\nresult_qty = vac_prop + vac_pend\n'
+            'ALW', 30, p + '\nresult = sd_real\nresult_qty = vac_prop + vac_pend\n'
         ),
         (
             'rule_fnqt_prima_vac', 'Prima Vacacional', 'FNQT_PRIMA_VAC',
@@ -351,7 +406,7 @@ def _rules_spec():
         ),
         (
             'rule_fnqt_ind90', 'Indemnización Constitucional', 'FNQT_IND90',
-            'ALW', 50, p + '\nresult = p_ind90_r\nresult_qty = ind_dias if aplica_ind else 0.0\n'
+            'ALW', 50, p + '\nresult = (sdi_real * factor_liq) if aplica_ind else 0.0\nresult_qty = ind_dias if aplica_ind else 0.0\n'
         ),
         (
             'rule_fnqt_ind20', 'Indemnización 20 Días por Año', 'FNQT_IND20',
