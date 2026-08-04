@@ -447,6 +447,40 @@ def _link(env, xmlid, model, res_id):
     })
 
 
+def _clean_foreign_rules(env, struct):
+    """Quita del Finiquito las reglas estructurales NATIVAS de Odoo.
+
+    Al crear una estructura, Odoo/l10n_mx le agrega la regla ``Basic Salary``
+    (código BASIC), que PRORRATEA el sueldo por los dias trabajados del periodo
+    y DUPLICA el concepto de salario del finiquito (aqui el salario va en
+    ``Salario Pendiente`` / FNQT_SALARIO, controlado por FNQT_DIAS_SAL).
+
+    Se eliminan del finiquito solo las reglas con codigo BASIC/GROSS/NET que NO
+    sean propias del modulo (mx_jandea_*). Asi se respetan las reglas propias y
+    cualquier regla que el usuario haya agregado con otro codigo (p. ej.
+    ``Prestamo a empleado``).
+    """
+    IMD = env['ir.model.data']
+    quitar = env['hr.salary.rule']
+    for rule in struct.rule_ids:
+        if rule.code not in ('BASIC', 'GROSS', 'NET'):
+            continue
+        imd = IMD.search([('model', '=', 'hr.salary.rule'),
+                          ('res_id', '=', rule.id)], limit=1)
+        propia = bool(imd) and (imd.module or '').startswith('mx_jandea')
+        if not propia:
+            quitar |= rule
+    for rule in quitar:
+        try:
+            rule.unlink()
+            _logger.info('%s: regla nativa "%s" (%s) quitada del Finiquito.',
+                         MODULE, rule.name, rule.code)
+        except Exception:
+            rule.write({'active': False, 'appears_on_payslip': False})
+            _logger.info('%s: regla nativa "%s" desactivada en el Finiquito '
+                         '(tenia lineas historicas).', MODULE, rule.code)
+
+
 def post_init_hook(env):
     """Crea la estructura de Finiquito con todas sus reglas."""
     struct = env.ref('%s.%s' % (MODULE, STRUCT_XMLID), raise_if_not_found=False)
@@ -507,5 +541,8 @@ def post_init_hook(env):
         })
         _link(env, xmlid, 'hr.salary.rule', rule.id)
         created += 1
+
+    # Quitar la regla nativa "Basic Salary" que Odoo agrega a la estructura.
+    _clean_foreign_rules(env, struct)
 
     _logger.info('%s: %s regla(s) de finiquito creadas.', MODULE, created)
