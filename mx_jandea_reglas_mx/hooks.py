@@ -208,7 +208,10 @@ for _o in (version, employee):
         break
 # Salario diario capturado (sirve de override y de respaldo si no hay wage).
 _sd_cap = _in('FNQT_SD_IMSS', 0.0)
-sd_real = (_wage / 30.0) if _wage else _sd_cap
+# El salario diario CAPTURADO (FNQT_SD_IMSS) manda por encima del sueldo del
+# contrato: en estos contratos el "wage" suele venir mal (mitad) o en 0, y el
+# usuario captura el diario real. Si no se captura, se usa sueldo/30.
+sd_real = _sd_cap or (_wage / 30.0)
 # Factor de integración (art. 30 LSS): (365 + días de aguinaldo + días de
 # vacaciones * 25% de prima vacacional) / 365. Con esto el SDI queda INTEGRADO
 # igual que en el Excel (p. ej. 428.33 -> 450.05 con 15 de aguinaldo y 14 de
