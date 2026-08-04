@@ -191,26 +191,31 @@ pv_prop = vac_prop * 0.25
 vac_pend = _in('FNQT_VAC_PEND', 0.0)
 pv_pend = _in('FNQT_PV_PEND', 0.0)
 
-# El recibo puede no tener version/contrato asignado ("Version: False").
-# En ese caso el sueldo se toma del contrato del empleado o queda en 0,
-# en vez de reventar con AttributeError.
+# El recibo puede no tener version/contrato asignado ("Version: False") o el
+# contrato puede venir SIN sueldo (wage = 0). En ese caso el salario diario se
+# toma del que se capture en FNQT_SD_IMSS, para que el finiquito SI calcule.
 _wage = 0.0
 for _o in (version, employee):
-    try:
-        _w = getattr(_o, 'wage', False) or getattr(_o, 'contract_wage', False)
-    except Exception:
-        _w = False
-    if _w:
-        _wage = _w
+    for _f in ('wage', 'contract_wage'):
+        try:
+            _w = getattr(_o, _f, False)
+        except Exception:
+            _w = False
+        if _w:
+            _wage = _w
+            break
+    if _wage:
         break
-sd_real = _wage / 30.0
+# Salario diario capturado (sirve de override y de respaldo si no hay wage).
+_sd_cap = _in('FNQT_SD_IMSS', 0.0)
+sd_real = (_wage / 30.0) if _wage else _sd_cap
 # Factor de integración (art. 30 LSS): (365 + días de aguinaldo + días de
 # vacaciones * 25% de prima vacacional) / 365. Con esto el SDI queda INTEGRADO
 # igual que en el Excel (p. ej. 428.33 -> 450.05 con 15 de aguinaldo y 14 de
 # vacaciones). Se puede sobre-escribir capturando FNQT_SDI_REAL / FNQT_SDI_IMSS
 # cuando el SBC real trae partes variables (bonos, comisiones, etc.).
 factor_integ = (365.0 + dias_agui + dias_tab * 0.25) / 365.0
-sd_imss = _in('FNQT_SD_IMSS', 0.0) or sd_real
+sd_imss = _sd_cap or sd_real
 sdi_real = _in('FNQT_SDI_REAL', 0.0) or (sd_real * factor_integ)
 sdi_imss = _in('FNQT_SDI_IMSS', 0.0) or (sd_imss * factor_integ)
 
