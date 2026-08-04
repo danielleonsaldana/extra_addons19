@@ -25,7 +25,8 @@ def migrate(cr, version):
     if not version:
         return
     from odoo import api, SUPERUSER_ID
-    from odoo.addons.mx_jandea_reglas_mx.hooks import _rules_spec
+    from odoo.addons.mx_jandea_reglas_mx.hooks import (
+        _rules_spec, _safe_remove_rules)
 
     env = api.Environment(cr, SUPERUSER_ID, {})
     Rule = env['hr.salary.rule']
@@ -50,30 +51,26 @@ def migrate(cr, version):
             regla.write(vals)
             actualizadas += 1
 
-    # 2) Borrar la regla ISN del recibo del empleado.
+    # 2) Quitar la regla ISN del recibo del empleado (segura ante FK).
     isn = env.ref('mx_jandea_reglas_mx.rule_fnqt_isn',
                   raise_if_not_found=False)
     if not isn:
         isn = Rule.search([('code', '=', 'FNQT_ISN')], limit=1)
     if isn:
-        try:
-            isn.unlink()
-            _logger.info('mx_jandea_reglas_mx: regla ISN eliminada.')
-        except Exception:
-            # Si hay recibos históricos que la referencian, al menos ocultarla.
-            isn.write({'appears_on_payslip': False, 'active': False})
-            _logger.info('mx_jandea_reglas_mx: regla ISN desactivada '
-                         '(tenía líneas históricas).')
+        _safe_remove_rules(env, isn)
 
-    # 3) Borrar las entradas de ISN.
+    # 3) Borrar las entradas de ISN (dentro de savepoint por si hay recibos
+    #    que las referencian; así no se aborta la transacción).
     InType = env['hr.payslip.input.type']
     isn_inputs = InType.search(
         [('code', 'in', ['FNQT_ISN_TASA', 'FNQT_ISN_EXCL_SEP'])])
     if isn_inputs:
         try:
-            isn_inputs.unlink()
+            with env.cr.savepoint():
+                isn_inputs.unlink()
         except Exception:
-            pass
+            _logger.info('mx_jandea_reglas_mx: entradas ISN conservadas '
+                         '(referenciadas por recibos).')
 
-    _logger.info('mx_jandea_reglas_mx: %s regla(s) de finiquito '
-                 'resincronizadas (v19.0.1.6.0).', actualizadas)
+    _logger.info('mx_jandea_reglas_mx: reglas de finiquito '
+                 'resincronizadas (v19.0.1.6.0).')

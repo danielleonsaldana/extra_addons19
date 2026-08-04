@@ -447,6 +447,48 @@ def _link(env, xmlid, model, res_id):
     })
 
 
+def _safe_remove_rules(env, rules):
+    """Elimina reglas de forma SEGURA para la transacción.
+
+    Si una regla tiene líneas de recibo históricas, un ``unlink`` dispara un
+    error de llave foránea a nivel SQL que ABORTA la transacción (y entonces
+    cualquier operación posterior falla con InFailedSqlTransaction). Para
+    evitarlo:
+      * si la regla YA tiene líneas de recibo -> se DESACTIVA (conserva el
+        histórico y deja de calcular en recibos nuevos);
+      * si no tiene líneas -> se borra, pero dentro de un SAVEPOINT para que,
+        si algo falla, se revierta solo ese paso sin tumbar la instalación.
+    """
+    Line = env['hr.payslip.line']
+    Rule = env['hr.salary.rule']
+    has_active = 'active' in Rule._fields
+
+    def _desactivar(rule):
+        vals = {'appears_on_payslip': False}
+        if has_active:
+            vals['active'] = False
+        try:
+            with env.cr.savepoint():
+                rule.write(vals)
+        except Exception:
+            _logger.exception('%s: no se pudo desactivar la regla %s.',
+                              MODULE, rule.code)
+
+    for rule in rules:
+        if not rule.exists():
+            continue
+        tiene_lineas = Line.search_count(
+            [('salary_rule_id', '=', rule.id)]) > 0
+        if tiene_lineas:
+            _desactivar(rule)
+            continue
+        try:
+            with env.cr.savepoint():
+                rule.unlink()
+        except Exception:
+            _desactivar(rule)
+
+
 def _clean_foreign_rules(env, struct):
     """Quita del Finiquito las reglas estructurales NATIVAS de Odoo.
 
@@ -470,15 +512,7 @@ def _clean_foreign_rules(env, struct):
         propia = bool(imd) and (imd.module or '').startswith('mx_jandea')
         if not propia:
             quitar |= rule
-    for rule in quitar:
-        try:
-            rule.unlink()
-            _logger.info('%s: regla nativa "%s" (%s) quitada del Finiquito.',
-                         MODULE, rule.name, rule.code)
-        except Exception:
-            rule.write({'active': False, 'appears_on_payslip': False})
-            _logger.info('%s: regla nativa "%s" desactivada en el Finiquito '
-                         '(tenia lineas historicas).', MODULE, rule.code)
+    _safe_remove_rules(env, quitar)
 
 
 def post_init_hook(env):
