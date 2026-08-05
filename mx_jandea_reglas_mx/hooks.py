@@ -52,27 +52,18 @@ FNQT_INPUT_CODES = [
 # ---------------------------------------------------------------------------
 PREAMBLE = '''
 def _in(c, d=0.0):
-    # 1) Via el objeto navegable 'inputs'.
+    # 1) Via el objeto navegable 'inputs' (subindice + atributo, sin getattr,
+    #    que NO existe dentro de las reglas de salario).
     try:
         v = inputs[c]
         if v:
-            a = getattr(v, 'amount', None)
+            a = v.amount
             if a not in (None, False):
                 return a
     except Exception:
         pass
-    # 2) Via acceso por atributo.
-    try:
-        v = getattr(inputs, c, None)
-        if v is not None:
-            a = getattr(v, 'amount', None)
-            if a not in (None, False):
-                return a
-    except Exception:
-        pass
-    # 3) Respaldo DIRECTO: leer la entrada capturada del recibo por codigo.
-    #    En Odoo 19 el objeto 'inputs' a veces no expone las entradas
-    #    manuales; esto garantiza que FNQT_IND_DIAS, FNQT_DIAS_SAL, etc. SI se
+    # 2) Respaldo DIRECTO: leer la entrada capturada del recibo por codigo.
+    #    Garantiza que FNQT_IND_DIAS, FNQT_DIAS_SAL, FNQT_SD_IMSS, etc. SI se
     #    lean cuando el usuario las captura.
     try:
         for _il in payslip.input_line_ids:
@@ -81,7 +72,10 @@ def _in(c, d=0.0):
             except Exception:
                 _code = False
             if not _code:
-                _code = getattr(_il, 'code', False)
+                try:
+                    _code = _il.code
+                except Exception:
+                    _code = False
             if _code == c:
                 return _il.amount
     except Exception:
@@ -105,31 +99,35 @@ fecha_baja = payslip.date_to
 for _o, _f in ((version, 'contract_date_end'), (version, 'date_end'),
                (employee, 'departure_date')):
     try:
-        _v = getattr(_o, _f, False)
+        _v = _o[_f]
     except Exception:
         _v = False
     if _v and payslip.date_from <= _v <= payslip.date_to:
         fecha_baja = _v
         break
 # La fecha de ALTA (antiguedad) es dificil de obtener de forma fiable en Odoo
-# 19: el "version" inyectado y hasta payslip.version_id pueden traer la fecha de
-# una VERSION RECIENTE. Por eso se juntan TODAS las fechas posibles (incluidas
-# las de TODAS las versiones/contratos del empleado) y se toma la MAS ANTIGUA.
+# 19. IMPORTANTE: dentro de las reglas de salario NO existe getattr(obj, campo,
+# default); por eso se usa acceso por SUBINDICE obj[campo] (como categories[..]
+# o inputs[..]), envuelto en try/except. Con getattr todo caia en el except y
+# la fecha nunca se leia -> antiguedad de ~1 dia.
 try:
-    _ver = getattr(payslip, 'version_id', False) or \
-        getattr(payslip, 'contract_id', False)
+    _ver = payslip['version_id']
 except Exception:
     _ver = False
 if not _ver:
+    try:
+        _ver = payslip['contract_id']
+    except Exception:
+        _ver = False
+if not _ver:
     _ver = version
 
-# Buscar la fecha de ALTA mas antigua usando SOLO getattr + comparacion (mismo
-# patron probado que el resto del PREAMBLE). Sin def, sin .append, sin min().
+# Buscar la fecha de ALTA mas antigua (subindice + comparacion, sin getattr).
 fecha_alta = False
 for _o, _f in ((_ver, 'contract_date_start'), (_ver, 'date_start'),
                (_ver, 'date_version'), (employee, 'first_contract_date')):
     try:
-        _v = getattr(_o, _f, False)
+        _v = _o[_f]
     except Exception:
         _v = False
     if _v:
@@ -142,7 +140,7 @@ for _o, _f in ((_ver, 'contract_date_start'), (_ver, 'date_start'),
 # Recorrer TODAS las versiones/contratos del empleado: la mas antigua = ingreso.
 for _coll in ('version_ids', 'contract_ids'):
     try:
-        _recs = getattr(employee, _coll, False)
+        _recs = employee[_coll]
     except Exception:
         _recs = False
     if not _recs:
@@ -150,7 +148,7 @@ for _coll in ('version_ids', 'contract_ids'):
     for _r in _recs:
         for _f in ('contract_date_start', 'date_start', 'date_version'):
             try:
-                _v = getattr(_r, _f, False)
+                _v = _r[_f]
             except Exception:
                 _v = False
             if not _v:
@@ -239,7 +237,7 @@ _wage = 0.0
 for _o in (version, employee):
     for _f in ('wage', 'contract_wage'):
         try:
-            _w = getattr(_o, _f, False)
+            _w = _o[_f]
         except Exception:
             _w = False
         if _w:
@@ -391,7 +389,7 @@ if not factor_isr:
     _sp = ''
     for _o in (version, employee):
         try:
-            _sp = (getattr(_o, 'schedule_pay', '') or '')
+            _sp = (_o['schedule_pay'] or '')
         except Exception:
             _sp = ''
         if _sp:
