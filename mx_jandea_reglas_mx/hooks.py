@@ -382,22 +382,12 @@ def _isr_tabla():
 
 factor_isr = _in('FNQT_FACTOR_ISR', 0.0)
 if not factor_isr:
-    # Factor de proporcion mensual segun la periodicidad de pago (mes/dias):
-    #   quincenal 30.4/15 = 2.0267 | catorcenal 30.4/14 = 2.1714
-    #   semanal   30.4/7  = 4.3429 | mensual 1.0
-    # Se toma de version.schedule_pay; si no hay, se asume QUINCENAL.
-    _sp = ''
-    for _o in (version, employee):
-        try:
-            _sp = (_o['schedule_pay'] or '')
-        except Exception:
-            _sp = ''
-        if _sp:
-            break
-    factor_isr = {
-        'monthly': 1.0, 'semi-monthly': 2.0267, 'bi-weekly': 2.1714,
-        'weekly': 4.3429, 'daily': 30.42,
-    }.get((_sp or '').lower(), 2.0267)
+    # Finiquitos QUINCENALES por politica: factor de proporcion mensual fijo en
+    # 2.0267 (30.4/15). No se usa version.schedule_pay porque en estos contratos
+    # suele venir mal marcado (p.ej. 'bi-weekly'), lo que desviaba el ISR.
+    # Si algun finiquito fuera semanal/catorcenal/mensual, capturar
+    # FNQT_FACTOR_ISR (semanal 4.3429, catorcenal 2.1714, mensual 1.0).
+    factor_isr = 2.0267
 _bg_mensual = base_gravable * factor_isr
 _isr = 0.0
 if _bg_mensual > 0:
