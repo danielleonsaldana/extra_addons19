@@ -245,12 +245,30 @@ for _o in (version, employee):
             break
     if _wage:
         break
-# Salario diario capturado (sirve de override y de respaldo si no hay wage).
+# Salario diario capturado (override manual opcional para excepciones).
 _sd_cap = _in('FNQT_SD_IMSS', 0.0)
-# El salario diario CAPTURADO (FNQT_SD_IMSS) manda por encima del sueldo del
-# contrato: en estos contratos el "wage" suele venir mal (mitad) o en 0, y el
-# usuario captura el diario real. Si no se captura, se usa sueldo/30.
-sd_real = _sd_cap or (_wage / 30.0)
+# El campo "Sueldo" del contrato trae el importe del PERIODO de pago (en estos
+# contratos, la QUINCENA). El salario diario se obtiene dividiendo entre los
+# dias del periodo segun la periodicidad:  quincenal /15 | semanal /7 |
+# mensual /30.  Ej.: 6424.95 (quincena) / 15 = 428.33.  Por defecto: quincena.
+_div = 15.0
+try:
+    _spw = (version['schedule_pay'] or '').lower()
+except Exception:
+    _spw = ''
+if not _spw:
+    try:
+        _spw = (employee['schedule_pay'] or '').lower()
+    except Exception:
+        _spw = ''
+if _spw == 'monthly':
+    _div = 30.0
+elif _spw == 'weekly':
+    _div = 7.0
+elif _spw in ('semi-monthly', 'bi-weekly'):
+    _div = 15.0
+# 1) diario capturado (manda)  2) diario del contrato (wage / dias del periodo).
+sd_real = _sd_cap or ((_wage / _div) if _wage else 0.0)
 # Factor de integración (art. 30 LSS): (365 + días de aguinaldo + días de
 # vacaciones * 25% de prima vacacional) / 365. Con esto el SDI queda INTEGRADO
 # igual que en el Excel (p. ej. 428.33 -> 450.05 con 15 de aguinaldo y 14 de
