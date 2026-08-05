@@ -123,22 +123,22 @@ except Exception:
 if not _ver:
     _ver = version
 
-def _add_fecha(_lst, _val):
-    if not _val:
-        return
-    try:
-        _val = _val.date()   # datetime -> date
-    except Exception:
-        pass
-    _lst.append(_val)
-
-_fechas_alta = []
+# Buscar la fecha de ALTA mas antigua usando SOLO getattr + comparacion (mismo
+# patron probado que el resto del PREAMBLE). Sin def, sin .append, sin min().
+fecha_alta = False
 for _o, _f in ((_ver, 'contract_date_start'), (_ver, 'date_start'),
                (_ver, 'date_version'), (employee, 'first_contract_date')):
     try:
-        _add_fecha(_fechas_alta, getattr(_o, _f, False))
+        _v = getattr(_o, _f, False)
     except Exception:
-        pass
+        _v = False
+    if _v:
+        try:
+            _v = _v.date()   # datetime -> date
+        except Exception:
+            pass
+        if (not fecha_alta) or (_v < fecha_alta):
+            fecha_alta = _v
 # Recorrer TODAS las versiones/contratos del empleado: la mas antigua = ingreso.
 for _coll in ('version_ids', 'contract_ids'):
     try:
@@ -150,16 +150,17 @@ for _coll in ('version_ids', 'contract_ids'):
     for _r in _recs:
         for _f in ('contract_date_start', 'date_start', 'date_version'):
             try:
-                _add_fecha(_fechas_alta, getattr(_r, _f, False))
+                _v = getattr(_r, _f, False)
+            except Exception:
+                _v = False
+            if not _v:
+                continue
+            try:
+                _v = _v.date()
             except Exception:
                 pass
-
-fecha_alta = False
-if _fechas_alta:
-    try:
-        fecha_alta = min(_fechas_alta)
-    except Exception:
-        fecha_alta = _fechas_alta[0]
+            if (not fecha_alta) or (_v < fecha_alta):
+                fecha_alta = _v
 if not fecha_alta:
     fecha_alta = payslip.date_from
 
