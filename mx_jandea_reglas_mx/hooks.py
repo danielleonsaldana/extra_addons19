@@ -111,10 +111,10 @@ for _o, _f in ((version, 'contract_date_end'), (version, 'date_end'),
     if _v and payslip.date_from <= _v <= payslip.date_to:
         fecha_baja = _v
         break
-# La fecha de ALTA (antiguedad) se resuelve EXACTAMENTE como el reporte PDF,
-# que si muestra la fecha real: desde payslip.version_id (o contract_id), NO
-# desde el objeto "version" que Odoo inyecta en la regla, que puede ser una
-# VERSION RECIENTE (un cambio de sueldo) y dejaria la antiguedad en ~1 dia.
+# La fecha de ALTA (antiguedad) es dificil de obtener de forma fiable en Odoo
+# 19: el "version" inyectado y hasta payslip.version_id pueden traer la fecha de
+# una VERSION RECIENTE. Por eso se juntan TODAS las fechas posibles (incluidas
+# las de TODAS las versiones/contratos del empleado) y se toma la MAS ANTIGUA.
 try:
     _ver = getattr(payslip, 'version_id', False) or \
         getattr(payslip, 'contract_id', False)
@@ -122,21 +122,38 @@ except Exception:
     _ver = False
 if not _ver:
     _ver = version
+
+def _add_fecha(_lst, _val):
+    if not _val:
+        return
+    try:
+        _val = _val.date()   # datetime -> date
+    except Exception:
+        pass
+    _lst.append(_val)
+
 _fechas_alta = []
 for _o, _f in ((_ver, 'contract_date_start'), (_ver, 'date_start'),
                (_ver, 'date_version'), (employee, 'first_contract_date')):
     try:
-        _v = getattr(_o, _f, False)
+        _add_fecha(_fechas_alta, getattr(_o, _f, False))
     except Exception:
-        _v = False
-    if _v:
-        try:
-            _v = _v.date()   # datetime -> date
-        except Exception:
-            pass
-        _fechas_alta.append(_v)
-# Primer valor no vacio (igual que el reporte). Si por algun motivo hubiera
-# varias, se toma la MAS ANTIGUA como respaldo.
+        pass
+# Recorrer TODAS las versiones/contratos del empleado: la mas antigua = ingreso.
+for _coll in ('version_ids', 'contract_ids'):
+    try:
+        _recs = getattr(employee, _coll, False)
+    except Exception:
+        _recs = False
+    if not _recs:
+        continue
+    for _r in _recs:
+        for _f in ('contract_date_start', 'date_start', 'date_version'):
+            try:
+                _add_fecha(_fechas_alta, getattr(_r, _f, False))
+            except Exception:
+                pass
+
 fecha_alta = False
 if _fechas_alta:
     try:
@@ -145,6 +162,17 @@ if _fechas_alta:
         fecha_alta = _fechas_alta[0]
 if not fecha_alta:
     fecha_alta = payslip.date_from
+
+# PALANCA MANUAL infalible: si se captura FNQT_DIAS_LAB, la fecha de alta se
+# deriva de la baja (alta = baja - (dias_laborados - 1)). Sirve cuando el
+# contrato trae fechas recientes/equivocadas. Ej.: 839 dias -> 16/03/2024.
+_dl_cap = _in('FNQT_DIAS_LAB', 0.0)
+if _dl_cap:
+    try:
+        fecha_alta = type(fecha_baja).fromordinal(
+            fecha_baja.toordinal() - (int(round(_dl_cap)) - 1))
+    except Exception:
+        pass
 inicio_anio = fecha_baja.replace(month=1, day=1)
 
 dias_lab = _in('FNQT_DIAS_LAB', 0.0) or ((fecha_baja - fecha_alta).days + 1)
