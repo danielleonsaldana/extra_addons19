@@ -111,20 +111,32 @@ for _o, _f in ((version, 'contract_date_end'), (version, 'date_end'),
     if _v and payslip.date_from <= _v <= payslip.date_to:
         fecha_baja = _v
         break
+# La fecha de ALTA (antiguedad) se resuelve EXACTAMENTE como el reporte PDF,
+# que si muestra la fecha real: desde payslip.version_id (o contract_id), NO
+# desde el objeto "version" que Odoo inyecta en la regla, que puede ser una
+# VERSION RECIENTE (un cambio de sueldo) y dejaria la antiguedad en ~1 dia.
+try:
+    _ver = getattr(payslip, 'version_id', False) or \
+        getattr(payslip, 'contract_id', False)
+except Exception:
+    _ver = False
+if not _ver:
+    _ver = version
 _fechas_alta = []
-for _o, _f in ((employee, 'first_contract_date'),
-               (version, 'contract_date_start'), (version, 'date_start'),
-               (version, 'date_version')):
+for _o, _f in ((_ver, 'contract_date_start'), (_ver, 'date_start'),
+               (_ver, 'date_version'), (employee, 'first_contract_date')):
     try:
         _v = getattr(_o, _f, False)
     except Exception:
         _v = False
     if _v:
+        try:
+            _v = _v.date()   # datetime -> date
+        except Exception:
+            pass
         _fechas_alta.append(_v)
-# La fecha de ALTA (antiguedad) es la MAS ANTIGUA disponible. En Odoo 19 el
-# "version" del contrato puede traer la fecha de una VERSION RECIENTE (un cambio
-# de sueldo, etc.), lo que desinflaria la antiguedad y dejaria aguinaldo /
-# vacaciones diminutos. Tomar el minimo garantiza la fecha real de ingreso.
+# Primer valor no vacio (igual que el reporte). Si por algun motivo hubiera
+# varias, se toma la MAS ANTIGUA como respaldo.
 fecha_alta = False
 if _fechas_alta:
     try:
