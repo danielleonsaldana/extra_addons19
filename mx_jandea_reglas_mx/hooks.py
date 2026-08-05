@@ -193,6 +193,9 @@ if _aniv < fecha_alta:
 dias_vac_base = _in('FNQT_DIAS_VAC_BASE', 0.0) or ((fecha_baja - _aniv).days + 1)
 anios_lab = int(round(dias_lab / 365.25))
 anios_antig = _in('FNQT_ANIOS_ANTIG', 0.0) or round(dias_lab / 365.25, 2)
+# Años CERRADOS para la prima de antigüedad: si la fracción llega a 6 meses
+# (>= 0.5) sube al siguiente entero, si no se queda. Ej.: 2.30 -> 2 ; 2.60 -> 3.
+anios_cerr = int(round(anios_antig))
 
 dias_agui = _in('FNQT_DIAS_AGUI', 15.0) or 15.0
 if fecha_alta < inicio_anio:
@@ -341,7 +344,7 @@ _tope_pa = SMG * 2.0
 p_pant_r = 0.0
 if prima_ant_on:
     _base_pa_r = _tope_pa if sd_real > _tope_pa else sd_real
-    p_pant_r = (_base_pa_r * 12.0) * anios_antig * factor_liq
+    p_pant_r = (_base_pa_r * 12.0) * anios_cerr * factor_liq
 p_otras = _in('FNQT_OTRAS_PERC', 0.0)
 
 # --- Percepciones, columna IMSS (base reportada) ---
@@ -354,7 +357,7 @@ p_ind20_i = ((sdi_imss * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq
 p_pant_i = 0.0
 if prima_ant_on:
     _base_pa_i = _tope_pa if sd_imss > _tope_pa else sd_imss
-    p_pant_i = (_base_pa_i * 12.0) * anios_antig * factor_liq
+    p_pant_i = (_base_pa_i * 12.0) * anios_cerr * factor_liq
 
 total_perc_real = (p_salario_r + p_agui_r + p_vac_r + p_pv_r
                    + p_ind90_r + p_ind20_r + p_pant_r + p_otras)
