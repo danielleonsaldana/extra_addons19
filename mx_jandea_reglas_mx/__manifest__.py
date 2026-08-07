@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.17.0',
+    'version': '19.0.1.18.0',
     'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + fix ISR GROSS=0 + estructura de Finiquito/Liquidación',
     'description': """
 Reglas complementarias para la nómina mexicana:
@@ -29,10 +29,12 @@ UMA y salario mínimo se leen de parámetros de regla versionados por año
         'l10n_mx_hr_payroll',
     ],
     'data': [
+        'security/ir.model.access.csv',
         'data/hr_rule_parameter_data.xml',
         'data/hr_payslip_input_type_data.xml',
         'data/hr_payslip_input_type_finiquito_data.xml',
         'data/hr_salary_rule_data.xml',
+        'wizards/fnqt_pct_wizard_views.xml',
     ],
     'post_init_hook': 'post_init_hook',
     'installable': True,

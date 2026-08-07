@@ -333,31 +333,57 @@ aplica_ind = ind_dias > 0
 ind_20 = _in('FNQT_IND_20', 0.0)
 prima_ant_on = _in('FNQT_PRIMA_ANT', 0.0)
 
+# --- % de ajuste por concepto (boton/wizard "Aplicar % a conceptos") ---
+# payslip.x_fnqt_pct = porcentaje que SI se paga (80 = 80%). Vacio/0/100 = 100%.
+# payslip.x_fnqt_pct_codes = codigos de conceptos afectados, separados por coma.
+# Cada concepto solo se ajusta si SU codigo esta en la lista -> imposible que
+# afecte a un concepto no seleccionado.
+try:
+    _pct_val = payslip['x_fnqt_pct']
+except Exception:
+    _pct_val = 0.0
+if not _pct_val or _pct_val <= 0:
+    _pct_val = 100.0
+try:
+    _pct_codes = (payslip['x_fnqt_pct_codes'] or '')
+except Exception:
+    _pct_codes = ''
+_pct_list = [_c.strip() for _c in (_pct_codes or '').split(',') if _c.strip()]
+_pf = _pct_val / 100.0
+_f_salario = _pf if 'FNQT_SALARIO' in _pct_list else 1.0
+_f_agui = _pf if 'FNQT_AGUINALDO' in _pct_list else 1.0
+_f_vac = _pf if 'FNQT_VACACIONES' in _pct_list else 1.0
+_f_pv = _pf if 'FNQT_PRIMA_VAC' in _pct_list else 1.0
+_f_ind90 = _pf if 'FNQT_IND90' in _pct_list else 1.0
+_f_ind20 = _pf if 'FNQT_IND20' in _pct_list else 1.0
+_f_pant = _pf if 'FNQT_PRIMA_ANT' in _pct_list else 1.0
+_f_otras = _pf if 'FNQT_OTRAS_PERC' in _pct_list else 1.0
+
 # --- Percepciones, columna REAL (lo que se paga) ---
-p_salario_r = dias_sal * sd_real
-p_agui_r = 0.0 if agui_pagado else sd_real * agui_prop
-p_vac_r = (vac_prop + vac_pend) * sd_real
-p_pv_r = ((vac_prop + pv_pend) * 0.25) * sd_real
-p_ind90_r = (ind_dias * sdi_real if aplica_ind else 0.0) * factor_liq
-p_ind20_r = ((sd_real * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq
+p_salario_r = dias_sal * sd_real * _f_salario
+p_agui_r = (0.0 if agui_pagado else sd_real * agui_prop) * _f_agui
+p_vac_r = (vac_prop + vac_pend) * sd_real * _f_vac
+p_pv_r = ((vac_prop + pv_pend) * 0.25) * sd_real * _f_pv
+p_ind90_r = (ind_dias * sdi_real if aplica_ind else 0.0) * factor_liq * _f_ind90
+p_ind20_r = ((sd_real * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq * _f_ind20
 _tope_pa = SMG * 2.0
 p_pant_r = 0.0
 if prima_ant_on:
     _base_pa_r = _tope_pa if sd_real > _tope_pa else sd_real
-    p_pant_r = (_base_pa_r * 12.0) * anios_cerr * factor_liq
-p_otras = _in('FNQT_OTRAS_PERC', 0.0)
+    p_pant_r = (_base_pa_r * 12.0) * anios_cerr * factor_liq * _f_pant
+p_otras = _in('FNQT_OTRAS_PERC', 0.0) * _f_otras
 
 # --- Percepciones, columna IMSS (base reportada) ---
-p_salario_i = dias_sal * sd_imss
-p_agui_i = 0.0 if agui_pagado else sd_imss * agui_prop
-p_vac_i = (vac_prop + vac_pend) * sd_imss
-p_pv_i = pv_prop * sd_imss
-p_ind90_i = (ind_dias * sdi_imss if aplica_ind else 0.0) * factor_liq
-p_ind20_i = ((sdi_imss * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq
+p_salario_i = dias_sal * sd_imss * _f_salario
+p_agui_i = (0.0 if agui_pagado else sd_imss * agui_prop) * _f_agui
+p_vac_i = (vac_prop + vac_pend) * sd_imss * _f_vac
+p_pv_i = pv_prop * sd_imss * _f_pv
+p_ind90_i = (ind_dias * sdi_imss if aplica_ind else 0.0) * factor_liq * _f_ind90
+p_ind20_i = ((sdi_imss * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq * _f_ind20
 p_pant_i = 0.0
 if prima_ant_on:
     _base_pa_i = _tope_pa if sd_imss > _tope_pa else sd_imss
-    p_pant_i = (_base_pa_i * 12.0) * anios_cerr * factor_liq
+    p_pant_i = (_base_pa_i * 12.0) * anios_cerr * factor_liq * _f_pant
 
 total_perc_real = (p_salario_r + p_agui_r + p_vac_r + p_pv_r
                    + p_ind90_r + p_ind20_r + p_pant_r + p_otras)
@@ -448,15 +474,15 @@ def _rules_spec():
         # ---------------- PERCEPCIONES ----------------
         (
             'rule_fnqt_salario', 'Salario Pendiente', 'FNQT_SALARIO',
-            'BASIC', 10, p + '\nresult = sd_real\nresult_qty = dias_sal\n'
+            'BASIC', 10, p + '\nresult = sd_real * _f_salario\nresult_qty = dias_sal\n'
         ),
         (
             'rule_fnqt_aguinaldo', 'Aguinaldo Proporcional', 'FNQT_AGUINALDO',
-            'ALW', 20, p + '\nresult = (0.0 if agui_pagado else sd_real)\nresult_qty = agui_prop\n'
+            'ALW', 20, p + '\nresult = (0.0 if agui_pagado else sd_real) * _f_agui\nresult_qty = agui_prop\n'
         ),
         (
             'rule_fnqt_vacaciones', 'Vacaciones', 'FNQT_VACACIONES',
-            'ALW', 30, p + '\nresult = sd_real\nresult_qty = vac_prop + vac_pend\n'
+            'ALW', 30, p + '\nresult = sd_real * _f_vac\nresult_qty = vac_prop + vac_pend\n'
         ),
         (
             'rule_fnqt_prima_vac', 'Prima Vacacional', 'FNQT_PRIMA_VAC',
@@ -464,7 +490,7 @@ def _rules_spec():
         ),
         (
             'rule_fnqt_ind90', 'Indemnización Constitucional', 'FNQT_IND90',
-            'ALW', 50, p + '\nresult = (sdi_real * factor_liq) if aplica_ind else 0.0\nresult_qty = ind_dias if aplica_ind else 0.0\n'
+            'ALW', 50, p + '\nresult = ((sdi_real * factor_liq) if aplica_ind else 0.0) * _f_ind90\nresult_qty = ind_dias if aplica_ind else 0.0\n'
         ),
         (
             'rule_fnqt_ind20', 'Indemnización 20 Días por Año', 'FNQT_IND20',

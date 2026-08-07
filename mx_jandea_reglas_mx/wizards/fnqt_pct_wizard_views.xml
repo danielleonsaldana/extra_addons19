@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="fnqt_pct_wizard_form" model="ir.ui.view">
+        <field name="name">fnqt.pct.wizard.form</field>
+        <field name="model">fnqt.pct.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Aplicar % a conceptos">
+                <sheet>
+                    <group>
+                        <field name="payslip_id" readonly="1"/>
+                        <field name="pct"/>
+                    </group>
+                    <separator string="Conceptos a los que se aplica el %"/>
+                    <p class="text-muted">
+                        El porcentaje se aplica SOLO a los conceptos marcados.
+                        Los no marcados quedan intactos.
+                    </p>
+                    <group>
+                        <group string="Indemnizaciones">
+                            <field name="afecta_ind90"/>
+                            <field name="afecta_ind20"/>
+                            <field name="afecta_prima_ant"/>
+                        </group>
+                        <group string="Otras percepciones">
+                            <field name="afecta_salario"/>
+                            <field name="afecta_aguinaldo"/>
+                            <field name="afecta_vacaciones"/>
+                            <field name="afecta_prima_vac"/>
+                            <field name="afecta_otras"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" type="object"
+                            string="Aplicar" class="btn-primary"/>
+                    <button name="action_quitar" type="object"
+                            string="Quitar ajuste (100%)" class="btn-secondary"/>
+                    <button string="Cancelar" class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Accion contextual: aparece en el menu Acciones del recibo -->
+    <record id="action_fnqt_pct_wizard" model="ir.actions.act_window">
+        <field name="name">Aplicar % a conceptos</field>
+        <field name="res_model">fnqt.pct.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="hr_payroll.model_hr_payslip"/>
+        <field name="binding_view_types">form</field>
+    </record>
+
+</odoo>
