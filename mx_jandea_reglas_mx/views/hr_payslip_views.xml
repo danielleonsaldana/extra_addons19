@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_hr_payslip_form_fnqt_pct" model="ir.ui.view">
+        <field name="name">hr.payslip.form.fnqt.pct</field>
+        <field name="model">hr.payslip</field>
+        <field name="inherit_id" ref="hr_payroll.view_hr_payslip_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Boton fijo en la cabecera (solo en borrador/verificar) -->
+            <xpath expr="//header" position="inside">
+                <button name="action_fnqt_pct_wizard" type="object"
+                        string="Aplicar % a conceptos"
+                        invisible="state not in ('draft','verify')"/>
+            </xpath>
+
+            <!-- Banner de aviso cuando hay un % aplicado (1..99) -->
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-warning" role="alert"
+                     invisible="not x_fnqt_pct or x_fnqt_pct &lt;= 0 or x_fnqt_pct &gt;= 100">
+                    <strong>Ajuste de porcentaje aplicado:</strong>
+                    se está pagando el
+                    <field name="x_fnqt_pct" class="oe_inline" readonly="1"/>%
+                    de estos conceptos:
+                    <field name="x_fnqt_pct_codes" class="oe_inline" readonly="1"/>
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+
+</odoo>
