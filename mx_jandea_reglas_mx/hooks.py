@@ -628,6 +628,91 @@ def _safe_remove_rules(env, rules):
             _desactivar(rule)
 
 
+def _patch_native_rules(env):
+    """Reaplica sobre reglas NATIVAS de l10n_mx dos parches que, de otro modo,
+    solo vivirian en la BD y se perderian al actualizar l10n_mx_hr_payroll:
+
+    1) Aguinaldo con DIAS capturables: crea la entrada 'DIAS_AGUINALDO' y hace
+       que la regla BASIC de las estructuras 'Christmas Bonus' use los dias
+       capturados en el recibo (si no se captura, usa el parametro, 15).
+    2) Fix getattr: en las reglas de salario que usan getattr(obj,'campo',def)
+       -que revienta con NameError en el evaluador de Odoo (p. ej. ISR de
+       'Regular Pay' con TODAS las faltas)- se reemplaza por acceso seguro por
+       subindice obj['campo']. Es idempotente (tras el fix ya no hay getattr).
+    """
+    import re
+    Rule = env['hr.salary.rule']
+
+    # --- 1) Aguinaldo capturable ---
+    InType = env['hr.payslip.input.type']
+    it = InType.search([('code', '=', 'DIAS_AGUINALDO')], limit=1)
+    if not it:
+        _vals = {'name': 'Días de aguinaldo', 'code': 'DIAS_AGUINALDO'}
+        _mx = env.ref('base.mx', raise_if_not_found=False)
+        if _mx:
+            _vals['country_id'] = _mx.id
+        it = InType.create(_vals)
+
+    structs = env['hr.payroll.structure'].search(
+        [('name', 'ilike', 'Christmas Bonus')])
+    for st in structs:
+        if 'input_line_type_ids' in st._fields and it not in st.input_line_type_ids:
+            st.input_line_type_ids = [(4, it.id)]
+
+    _agui_code = '''
+first_day = max(date(payslip.date_to.year, 1, 1), employee._get_first_version_date())
+days_of_year_in_contract_until_payslip = (payslip.date_to - first_day).days + 1
+unpaid_worked_days = payslip.env['hr.payslip'].search([
+    ('employee_id', '=', employee.id),
+    ('structure_code', '=', 'MX_REGULAR'),
+    ('state', 'in', ['paid', 'validated']),
+    ('date_from', '>=', date(payslip.date_to.year, 1, 1)),
+    ('date_to', '<=', payslip.date_to),
+])._get_worked_days_line_values(['LEAVE90', 'LEAVE1000', 'LEAVE1100', 'LEAVE1200'], ['number_of_days'], True)
+unpaid_days = sum(worked_day_line['sum']['number_of_days'] for worked_day_line in unpaid_worked_days.values())
+
+work_ratio = (days_of_year_in_contract_until_payslip - unpaid_days) / payslip.l10n_mx_days_of_year
+
+# Dias de aguinaldo: 1) capturado en el recibo (DIAS_AGUINALDO)  2) parametro (15)
+_dias_agui = 0.0
+try:
+    _e = inputs['DIAS_AGUINALDO']
+    _dias_agui = _e.amount if _e else 0.0
+except Exception:
+    _dias_agui = 0.0
+if not _dias_agui or _dias_agui <= 0:
+    _dias_agui = payslip._rule_parameter('l10n_mx_christmas_bonus')
+
+result = payslip.l10n_mx_daily_salary * _dias_agui * work_ratio
+'''
+    _agui_rules = Rule.search([('code', '=', 'BASIC')]).filtered(
+        lambda r: r.struct_id and 'christmas bonus' in (r.struct_id.name or '').lower())
+    for r in _agui_rules:
+        if r.amount_python_compute != _agui_code:
+            r.amount_python_compute = _agui_code
+
+    # --- 2) Fix getattr(obj,'campo',default) -> obj['campo'] (seguro) ---
+    _pat = re.compile(
+        r"getattr\(\s*([a-zA-Z_][\w\.]*)\s*,\s*'([^']+)'\s*,\s*([^)]+)\)")
+
+    def _repl(m):
+        obj, campo, default = m.group(1).strip(), m.group(2), m.group(3).strip()
+        return ("(%s['%s'] if ('%s' in %s._fields and %s['%s'] "
+                "not in (None, False)) else %s)"
+                % (obj, campo, campo, obj, obj, campo, default))
+
+    for r in Rule.search([]):
+        c = r.amount_python_compute or ''
+        if 'getattr(' not in c:
+            continue
+        c2 = _pat.sub(_repl, c)
+        if c2 != c and 'getattr(' not in c2:
+            r.amount_python_compute = c2
+
+    _logger.info('%s: parches nativos reaplicados (aguinaldo + getattr).',
+                 MODULE)
+
+
 def _clean_foreign_rules(env, struct):
     """Quita del Finiquito las reglas estructurales NATIVAS de Odoo.
 
@@ -717,5 +802,8 @@ def post_init_hook(env):
 
     # Quitar la regla nativa "Basic Salary" que Odoo agrega a la estructura.
     _clean_foreign_rules(env, struct)
+
+    # Reaplicar parches sobre reglas nativas (aguinaldo capturable + getattr).
+    _patch_native_rules(env)
 
     _logger.info('%s: %s regla(s) de finiquito creadas.', MODULE, created)
