@@ -277,10 +277,10 @@ sd_real = _sd_cap or ((_wage / _div) if _wage else 0.0)
 # igual que en el Excel (p. ej. 428.33 -> 450.05 con 15 de aguinaldo y 14 de
 # vacaciones). Se puede sobre-escribir capturando FNQT_SDI_REAL / FNQT_SDI_IMSS
 # cuando el SBC real trae partes variables (bonos, comisiones, etc.).
-factor_integ = (365.0 + dias_agui + dias_tab * 0.25) / 365.0
+factor_integ = round((365.0 + dias_agui + dias_tab * 0.25) / 365.0, 4)
 sd_imss = _sd_cap or sd_real
-sdi_real = _in('FNQT_SDI_REAL', 0.0) or (sd_real * factor_integ)
-sdi_imss = _in('FNQT_SDI_IMSS', 0.0) or (sd_imss * factor_integ)
+sdi_real = round(_in('FNQT_SDI_REAL', 0.0) or (sd_real * factor_integ), 2)
+sdi_imss = round(_in('FNQT_SDI_IMSS', 0.0) or (sd_imss * factor_integ), 2)
 
 dias_sal = _in('FNQT_DIAS_SAL', 0.0)
 if not dias_sal:
