@@ -209,7 +209,9 @@ else:
     agui_prop = (((fecha_baja - fecha_alta).days + 1) / 365.0) * dias_agui
 
 def _dias_vac_lft(a):
-    a = int(round(a))
+    # Años SIN redondear: se trunca al rango inferior, igual que el VLOOKUP
+    # aproximado del Excel (p. ej. 4.82 años -> rango de 4 -> 18 dias, NO 20).
+    a = int(a)
     if a <= 1:
         return 12
     if a == 2:
