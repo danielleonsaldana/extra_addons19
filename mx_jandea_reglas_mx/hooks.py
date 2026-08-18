@@ -192,10 +192,15 @@ if _aniv < fecha_alta:
     _aniv = fecha_alta
 dias_vac_base = _in('FNQT_DIAS_VAC_BASE', 0.0) or ((fecha_baja - _aniv).days + 1)
 anios_lab = int(round(dias_lab / 365.25))
-anios_antig = _in('FNQT_ANIOS_ANTIG', 0.0) or round(dias_lab / 365.25, 2)
-# Años CERRADOS para la prima de antigüedad: si la fracción llega a 6 meses
-# (>= 0.5) sube al siguiente entero, si no se queda. Ej.: 2.30 -> 2 ; 2.60 -> 3.
+# Antiguedad en años CON DECIMALES (para montos de Ind20 y Prima de antiguedad),
+# igual que el Excel B17 = ROUND((BAJA - FECHA_ANTIGUEDAD)/365, 4). Nota: usa los
+# dias sin el +1 y /365.  Ej.: 838/365 -> 2.2959.
+anios_antig = _in('FNQT_ANIOS_ANTIG', 0.0) or round(
+    (fecha_baja - fecha_alta).days / 365.0, 4)
+# Años REDONDEADOS (>= 6 meses sube) SOLO para la exencion de indemnizaciones,
+# igual que el Excel B16 = ROUND(DIAS_LABORADOS/365, 0).  Ej.: 839/365 -> 2.
 anios_cerr = int(round(anios_antig))
+anios_exencion = int(round(dias_lab / 365.0))
 
 dias_agui = _in('FNQT_DIAS_AGUI', 15.0) or 15.0
 if fecha_alta < inicio_anio:
@@ -365,12 +370,12 @@ p_agui_r = (0.0 if agui_pagado else sd_real * agui_prop) * _f_agui
 p_vac_r = (vac_prop + vac_pend) * sd_real * _f_vac
 p_pv_r = ((vac_prop + pv_pend) * 0.25) * sd_real * _f_pv
 p_ind90_r = (ind_dias * sdi_real if aplica_ind else 0.0) * factor_liq * _f_ind90
-p_ind20_r = ((sd_real * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq * _f_ind20
+p_ind20_r = ((sdi_real * 20.0) * anios_antig if ind_20 else 0.0) * factor_liq * _f_ind20
 _tope_pa = SMG * 2.0
 p_pant_r = 0.0
 if prima_ant_on:
     _base_pa_r = _tope_pa if sd_real > _tope_pa else sd_real
-    p_pant_r = (_base_pa_r * 12.0) * anios_cerr * factor_liq * _f_pant
+    p_pant_r = (_base_pa_r * 12.0) * anios_antig * factor_liq * _f_pant
 p_otras = _in('FNQT_OTRAS_PERC', 0.0) * _f_otras
 
 # --- Percepciones, columna IMSS (base reportada) ---
@@ -379,11 +384,11 @@ p_agui_i = (0.0 if agui_pagado else sd_imss * agui_prop) * _f_agui
 p_vac_i = (vac_prop + vac_pend) * sd_imss * _f_vac
 p_pv_i = pv_prop * sd_imss * _f_pv
 p_ind90_i = (ind_dias * sdi_imss if aplica_ind else 0.0) * factor_liq * _f_ind90
-p_ind20_i = ((sdi_imss * 20.0) * anios_lab if ind_20 else 0.0) * factor_liq * _f_ind20
+p_ind20_i = ((sdi_imss * 20.0) * anios_antig if ind_20 else 0.0) * factor_liq * _f_ind20
 p_pant_i = 0.0
 if prima_ant_on:
     _base_pa_i = _tope_pa if sd_imss > _tope_pa else sd_imss
-    p_pant_i = (_base_pa_i * 12.0) * anios_cerr * factor_liq * _f_pant
+    p_pant_i = (_base_pa_i * 12.0) * anios_antig * factor_liq * _f_pant
 
 total_perc_real = (p_salario_r + p_agui_r + p_vac_r + p_pv_r
                    + p_ind90_r + p_ind20_r + p_pant_r + p_otras)
@@ -393,13 +398,17 @@ total_perc_imss = (p_salario_i + p_agui_i + p_vac_i + p_pv_i
 # --- Base gravable ISR (art. 93 LISR: exenciones en UMA) ---
 _ex_agui = UMA * 30.0
 _ex_pv = UMA * 15.0
-_ex_sep = (UMA * 90.0) * anios_lab
+# Exencion de indemnizaciones: 90 UMA por año REDONDEADO, aplicada a la SUMA de
+# las 3 indemnizaciones (Ind90 + Ind20 + Prima de antiguedad), igual que el
+# Excel: IF(SUMA(G12:G14) > (UMA*90)*años_red, SUMA - (UMA*90)*años_red, 0).
+_ex_sep = (UMA * 90.0) * anios_exencion
+_suma_indem = p_ind90_i + p_ind20_i + p_pant_i
 base_gravable = (
     p_salario_i
     + (0.0 if p_agui_i < _ex_agui else p_agui_i - _ex_agui)
     + p_vac_i
     + (p_pv_i - _ex_pv if p_pv_i > _ex_pv else 0.0)
-    + (p_ind90_i - _ex_sep if p_ind90_i > _ex_sep else 0.0)
+    + (_suma_indem - _ex_sep if _suma_indem > _ex_sep else 0.0)
     + p_otras
 )
 '''
