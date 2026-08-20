@@ -90,4 +90,34 @@
         <field name="country_id" ref="base.mx"/>
         <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
     </record>
+
+    <!-- =======================================================================
+         FONDO DE AHORRO / VALES DE DESPENSA
+         Al capturar "Sueldo Neto (FA/VD)" en el recibo se activan las 4 reglas
+         (FA gravable, FA exento, Vales gravable, Vales exento). Si no se captura
+         "Sueldo IMSS (FA/VD)", se toma el sueldo del contrato (version.wage).
+         "Días laborados (FA/VD)" es opcional: si se omite, usa los días del
+         período del recibo (quincena=15, mes=30/31).
+         ======================================================================= -->
+
+    <record id="input_sueldo_neto_favd" model="hr.payslip.input.type">
+        <field name="name">Sueldo Neto (FA/VD)</field>
+        <field name="code">SUELDO_NETO_FAVD</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_sueldo_imss_favd" model="hr.payslip.input.type">
+        <field name="name">Sueldo IMSS mensual (FA/VD)</field>
+        <field name="code">SUELDO_IMSS_FAVD</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_dias_favd" model="hr.payslip.input.type">
+        <field name="name">Días laborados (FA/VD)</field>
+        <field name="code">DIAS_FAVD</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
 </odoo>

@@ -54,5 +54,90 @@
             <field name="parameter_value">278.80</field>
         </record>
 
+        <!-- ===================================================================
+             FONDO DE AHORRO / VALES DE DESPENSA
+             Topes y tasas que replican el Excel "LicenciasInternacionales
+             (FA y VD)". Se dejan como parámetros para no tocar código:
+
+               Tope FA total / Vales gravable mensual (G3 del Excel):
+                   = UMA * mult * dias_mes  =  117.31 * 1.3 * 30.4 = 4636.0912
+               Tope FA gravable quincenal / Vales total (H4 del Excel):
+                   = UMA * dias_quincena    =  117.31 * 15        = 1759.65
+
+             Fórmulas (sobre el Sueldo Neto SN y el Sueldo IMSS SI mensuales):
+               FA total   = min(SN*13%, TopeG)/30 * dias
+               FA gravable= min((SI/2)*13%, TopeH)          -> integra IMSS
+               FA exento  = max(0, FA total - FA gravable)
+               VD total   = 0 si SI=0, si no min(SN*10%, TopeH)/30 * dias
+               VD gravable= min(SI*10%, TopeG)/30 * dias     -> integra IMSS
+               VD exento  = max(0, VD total - VD gravable)
+             =================================================================== -->
+
+        <record id="rule_param_favd_dias_mes" model="hr.rule.parameter">
+            <field name="name">MX Jandea · FA/VD · Días promedio del mes (mensualización UMA)</field>
+            <field name="code">mx_jandea_favd_dias_mes</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_favd_dias_mes_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_favd_dias_mes"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">30.4</field>
+        </record>
+
+        <record id="rule_param_favd_dias_q" model="hr.rule.parameter">
+            <field name="name">MX Jandea · FA/VD · Días de la quincena</field>
+            <field name="code">mx_jandea_favd_dias_quincena</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_favd_dias_q_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_favd_dias_q"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">15</field>
+        </record>
+
+        <record id="rule_param_fa_uma_mult" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Fondo de Ahorro · Multiplicador de UMA (tope 1.3 UMA)</field>
+            <field name="code">mx_jandea_fa_uma_mult</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_fa_uma_mult_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_fa_uma_mult"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">1.3</field>
+        </record>
+
+        <record id="rule_param_fa_tasa" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Fondo de Ahorro · Tasa sobre el sueldo (13%)</field>
+            <field name="code">mx_jandea_fa_tasa</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_fa_tasa_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_fa_tasa"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.13</field>
+        </record>
+
+        <record id="rule_param_vd_tasa" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Tasa sobre el sueldo (10%)</field>
+            <field name="code">mx_jandea_vd_tasa</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_tasa_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_tasa"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.10</field>
+        </record>
+
+        <record id="rule_param_vd_dias_tope" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Días para el tope del total (15=H4 dominante, 30.4=H3)</field>
+            <field name="code">mx_jandea_vd_dias_tope</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_dias_tope_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_dias_tope"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">15.0</field>
+        </record>
+
     </data>
 </odoo>

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.23.0',
-    'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + fix ISR GROSS=0 + estructura de Finiquito/Liquidación',
+    'version': '19.0.1.24.0',
+    'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + fix ISR GROSS=0 + Finiquito/Liquidación + Fondo de Ahorro y Vales de Despensa',
     'description': """
 Reglas complementarias para la nómina mexicana:
 
@@ -11,6 +11,12 @@ Reglas complementarias para la nómina mexicana:
   premios, compensación, habitación).
 * Deducciones complementarias (anticipo, caja de ahorro, SAR e INFONAVIT
   voluntarios).
+* Fondo de Ahorro y Vales de Despensa en la nómina NORMAL, con parte gravada
+  (integra IMSS/ISR) y parte exenta, replicando el Excel de "Licencias
+  Internacionales". Tope de Fondo de Ahorro = 1.3 x UMA; topes y tasas son
+  parámetros de regla (mx_jandea_fa_uma_mult, mx_jandea_fa_tasa,
+  mx_jandea_vd_tasa, mx_jandea_favd_dias_mes/_quincena). Se activan al capturar
+  la entrada "Sueldo Neto (FA/VD)" en el recibo.
 * Estructura "Mexico: Finiquito / Liquidación" que replica el cálculo de
   finiquito: salario pendiente, aguinaldo y vacaciones proporcionales, prima
   vacacional, indemnización 90 y 20 días, prima de antigüedad (topada a 2 SMG),

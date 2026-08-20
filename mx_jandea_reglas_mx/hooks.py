@@ -750,6 +750,194 @@ def _clean_foreign_rules(env, struct):
     _safe_remove_rules(env, quitar)
 
 
+# ===========================================================================
+# FONDO DE AHORRO / VALES DE DESPENSA  (nómina NORMAL, no finiquito)
+#
+# Se agregan a la estructura nativa 'l10n_mx_regular_pay' cuatro reglas:
+#   FONDO_AHORRO_GRAV   (J) -> percepción GRAVADA  (integra IMSS/ISR)
+#   FONDO_AHORRO_EXENTO (K) -> percepción EXENTA   (suma al neto, no a ISR)
+#   VALES_DESPENSA_GRAV (M) -> percepción GRAVADA
+#   VALES_DESPENSA_EXENTO (N) -> percepción EXENTA
+#
+# Las cuatro se disparan solo si en el recibo se captura "Sueldo Neto (FA/VD)"
+# (SUELDO_NETO_FAVD), así la nómina normal no se altera cuando no se usan.
+#
+# Se construyen aquí (no en XML) porque la categoría EXENTA de l10n_mx tiene
+# un XML-ID que puede variar; se resuelve de forma robusta en tiempo de
+# instalación/actualización con varios respaldos.
+# ===========================================================================
+
+FAVD_PREAMBLE = '''
+def _p(c, d):
+    try:
+        v = payslip._rule_parameter(c)
+        return float(v) if v not in (None, False, "") else d
+    except Exception:
+        return d
+
+def _in(c, d=0.0):
+    # 1) objeto navegable 'inputs' (subíndice + atributo).
+    try:
+        v = inputs[c]
+        if v and v.amount not in (None, False):
+            return v.amount
+    except Exception:
+        pass
+    # 2) respaldo directo: leer la entrada del recibo por código.
+    try:
+        for _il in payslip.input_line_ids:
+            try:
+                _code = _il.input_type_id.code if _il.input_type_id else False
+            except Exception:
+                _code = False
+            if _code == c and _il.amount not in (None, False):
+                return _il.amount
+    except Exception:
+        pass
+    return d
+
+def _cap(x, tope):
+    return x if x < tope else tope
+
+UMA       = _p("mx_jandea_uma", 117.31)
+_dias_mes = _p("mx_jandea_favd_dias_mes", 30.4)
+_dias_q   = _p("mx_jandea_favd_dias_quincena", 15.0)
+_fa_mult  = _p("mx_jandea_fa_uma_mult", 1.3)
+_fa_tasa  = _p("mx_jandea_fa_tasa", 0.13)
+_vd_tasa  = _p("mx_jandea_vd_tasa", 0.10)
+# Días que multiplican el tope de Vales total: 15 = H4 (patron dominante),
+# 30.4 = H3 (variante de la fila atipica). Configurable sin tocar codigo.
+_vd_dias_tope = _p("mx_jandea_vd_dias_tope", 15.0)
+
+# Topes derivados de la UMA (equivalen a G3 y H4 del Excel):
+_tope_g = UMA * _fa_mult * _dias_mes     # 1.3 * UMA * 30.4  (FA total / Vales gravable mensual)
+_tope_h = UMA * _dias_q                  # UMA * 15          (FA gravable quincenal)
+_tope_vd_total = UMA * _vd_dias_tope     # UMA * 15 (H4, def.) o UMA * 30.4 (H3)  (Vales total)
+
+# Bases mensuales. Si no se capturan, se usa el sueldo del contrato.
+_wage = (version and version.wage) or 0.0
+sn = _in("SUELDO_NETO_FAVD", 0.0) or _wage     # D: comp objetivo (Sueldo Neto)
+si = _in("SUELDO_IMSS_FAVD", 0.0) or _wage     # E: sueldo mensual registrado ante IMSS
+f_q = si / 2.0                                  # F: sueldo quincenal IMSS
+
+# Días para prorratear los totales (default: días del período del recibo).
+_dias_periodo = (payslip.date_to - payslip.date_from).days + 1
+dias = _in("DIAS_FAVD", 0.0) or _dias_periodo
+
+# --- Fondo de Ahorro ---
+fa_total  = (_cap(sn * _fa_tasa, _tope_g) / 30.0) * dias   # G "FA Real"
+fa_grav   = _cap(f_q * _fa_tasa, _tope_h)                  # J  (gravable / integra IMSS)
+fa_exento = fa_total - fa_grav                             # K
+if fa_exento < 0:
+    fa_exento = 0.0
+
+# --- Vales de Despensa ---
+vd_total  = 0.0 if si == 0 else (_cap(sn * _vd_tasa, _tope_vd_total) / 30.0) * dias   # H "VD Real"
+vd_grav   = (_cap(si * _vd_tasa, _tope_g) / 30.0) * dias                       # M (gravable)
+vd_exento = vd_total - vd_grav                                                 # N
+if vd_exento < 0:
+    vd_exento = 0.0
+'''
+
+
+def _favd_rules_spec():
+    """Reglas de Fondo de Ahorro / Vales: (xmlid, nombre, código, tipo, seq, code).
+
+    tipo: 'GRAV' -> categoría gravada (taxable);  'EXE' -> categoría exenta.
+    """
+    p = FAVD_PREAMBLE
+    return [
+        ('rule_fondo_ahorro_grav', 'Fondo de Ahorro (Gravado)',
+         'FONDO_AHORRO_GRAV', 'GRAV', 90, p + '\nresult = fa_grav\n'),
+        ('rule_fondo_ahorro_exento', 'Fondo de Ahorro (Exento)',
+         'FONDO_AHORRO_EXENTO', 'EXE', 91, p + '\nresult = fa_exento\n'),
+        ('rule_vales_despensa_grav', 'Vales de Despensa (Gravado)',
+         'VALES_DESPENSA_GRAV', 'GRAV', 92, p + '\nresult = vd_grav\n'),
+        ('rule_vales_despensa_exento', 'Vales de Despensa (Exento)',
+         'VALES_DESPENSA_EXENTO', 'EXE', 93, p + '\nresult = vd_exento\n'),
+    ]
+
+
+def _resolve_favd_categories(env):
+    """Devuelve (cat_gravada, cat_exenta) de forma robusta.
+
+    - Gravada: categoría taxable_alw de l10n_mx (ya usada por el módulo).
+    - Exenta:  se intenta por XML-ID; si no, por nombre ('exent'/'exempt');
+      como último respaldo se crea una categoría propia (informa en el log).
+      La categoría exenta debe sumar al NETO pero NO a la base de ISR.
+    """
+    Cat = env['hr.salary.rule.category']
+
+    gravada = env.ref('l10n_mx_hr_payroll.l10n_mx_category_taxable_alw',
+                      raise_if_not_found=False)
+    if not gravada:
+        gravada = Cat.search([('code', '=', 'ALW')], limit=1) \
+            or _get_category(env, 'ALW', 'Allowance')
+
+    exenta = env.ref('l10n_mx_hr_payroll.l10n_mx_category_exempt_alw',
+                     raise_if_not_found=False)
+    if not exenta:
+        exenta = Cat.search(['|', ('name', 'ilike', 'exent'),
+                             ('name', 'ilike', 'exempt')], limit=1)
+    if not exenta:
+        exenta = Cat.search(['|', ('code', 'ilike', 'exent'),
+                             ('code', 'ilike', 'exempt')], limit=1)
+    if not exenta:
+        # Respaldo: crear categoría propia. OJO: para que quede realmente
+        # EXENTA (fuera de la base de ISR) puede requerir ajustar la regla NET
+        # de la localización; se avisa para revisión manual.
+        exenta = _get_category(env, 'PERCEP_EXE', 'Percepción Exenta (MX)')
+        _logger.warning(
+            '%s: no se encontró la categoría EXENTA de l10n_mx; se usó una '
+            'categoría propia "PERCEP_EXE". Verifica que no entre a la base '
+            'de ISR.', MODULE)
+    return gravada, exenta
+
+
+def _build_favd_rules(env):
+    """Crea/enlaza las 4 reglas de Fondo de Ahorro / Vales en 'regular_pay'."""
+    struct = env.ref('l10n_mx_hr_payroll.l10n_mx_regular_pay',
+                     raise_if_not_found=False)
+    if not struct:
+        _logger.warning('%s: no se encontró l10n_mx_regular_pay; no se '
+                        'crearon las reglas de FA/Vales.', MODULE)
+        return
+
+    gravada, exenta = _resolve_favd_categories(env)
+
+    # Entrada disparadora: "Sueldo Neto (FA/VD)".
+    trigger = env['hr.payslip.input.type'].search(
+        [('code', '=', 'SUELDO_NETO_FAVD')], limit=1)
+
+    Rule = env['hr.salary.rule']
+    creadas = 0
+    for xmlid, name, code, tipo, seq, python_code in _favd_rules_spec():
+        if env.ref('%s.%s' % (MODULE, xmlid), raise_if_not_found=False):
+            continue
+        vals = {
+            'name': name,
+            'code': code,
+            'category_id': (gravada if tipo == 'GRAV' else exenta).id,
+            'struct_id': struct.id,
+            'sequence': seq,
+            'appears_on_payslip': True,
+            'amount_select': 'code',
+            'amount_python_compute': python_code,
+        }
+        # Solo se calculan si se captura el Sueldo Neto (FA/VD).
+        if trigger:
+            vals['condition_select'] = 'input'
+            vals['condition_other_input_id'] = trigger.id
+        else:
+            vals['condition_select'] = 'none'
+        rule = Rule.create(vals)
+        _link(env, xmlid, 'hr.salary.rule', rule.id)
+        creadas += 1
+
+    _logger.info('%s: %s regla(s) de Fondo de Ahorro / Vales creadas.',
+                 MODULE, creadas)
+
+
 def post_init_hook(env):
     """Crea la estructura de Finiquito con todas sus reglas."""
     struct = env.ref('%s.%s' % (MODULE, STRUCT_XMLID), raise_if_not_found=False)
@@ -816,5 +1004,8 @@ def post_init_hook(env):
 
     # Reaplicar parches sobre reglas nativas (aguinaldo capturable + getattr).
     _patch_native_rules(env)
+
+    # Reglas de Fondo de Ahorro / Vales de Despensa en la nómina NORMAL.
+    _build_favd_rules(env)
 
     _logger.info('%s: %s regla(s) de finiquito creadas.', MODULE, created)
