@@ -11,22 +11,52 @@
                     <field name="genero"/>
                     <field name="template_id"/>
                 </group>
-                <group string="Datos a insertar en el documento" col="2">
+                <group string="Datos del trabajador" col="2">
                     <field name="nombre_trabajador"/>
+                    <field name="puesto"/>
+                    <field name="apellido_paterno"/>
+                    <field name="apellido_materno"/>
+                    <field name="nombres"/>
+                    <field name="nacionalidad"/>
+                    <field name="edad"/>
+                    <field name="sexo"/>
                     <field name="estado_civil"/>
                     <field name="rfc"/>
                     <field name="curp"/>
                     <field name="nss"/>
-                    <field name="domicilio"/>
-                    <field name="puesto"/>
-                    <field name="actividades"/>
+                </group>
+                <group string="Domicilio" col="2">
+                    <field name="calle_y_n"/>
+                    <field name="colonia"/>
+                    <field name="cp"/>
+                    <field name="municipio"/>
+                    <field name="estado"/>
+                    <field name="domicilio" string="Domicilio completo (Burdina/Krino)"/>
+                </group>
+                <group string="Fechas y vigencia" col="2">
+                    <field name="fecha_ingreso_texto"/>
+                    <field name="fecha_antiguedad_texto"/>
+                    <field name="fecha_termino_texto"/>
+                    <field name="vigencia_dias"/>
+                    <field name="fecha_firma"/>
                     <field name="dia"/>
                     <field name="mes"/>
                     <field name="anio"/>
+                </group>
+                <group string="Salario y banco" col="2">
+                    <field name="sueldo_mensual"/>
+                    <field name="sueldo_letra"/>
                     <field name="salario_numero"/>
                     <field name="salario_letra"/>
                     <field name="periodicidad"/>
-                    <field name="fecha_firma"/>
+                    <field name="banco"/>
+                    <field name="clabe"/>
+                    <field name="sucursal"/>
+                </group>
+                <group string="Otros" col="2">
+                    <field name="horario"/>
+                    <field name="representante_legal"/>
+                    <field name="actividades" colspan="2"/>
                 </group>
                 <footer>
                     <button name="action_generate" type="object" string="Generar e Imprimir"

@@ -2,20 +2,34 @@
 """
 mx_jandea_employee_import / wizard / employee_import_wizard.py
 
-Wizard de importación masiva desde plantilla IMSS de 52 columnas.
+Wizard de importación masiva de empleados.
 
-Flujo de uso:
-  1. Usuario sube el archivo XLS/XLSX y configura opciones → [Importar Empleados]
-  2. Se muestra el resumen (creados/actualizados/omitidos/errores) y la tabla
-     de resultados con una columna "checkid_selected" (checkbox).
-  3. Si mx_jandea_checkid está instalado, aparece el botón
-     [✓ Validar seleccionados con CheckId] que procesa SOLO los registros
-     que el usuario haya marcado en la tabla.
-  4. Al terminar muestra el resultado de CheckId por registro.
+Cambios respecto a la versión anterior
+──────────────────────────────────────
+1. Mapeo por NOMBRE de columna (no por índice fijo): el orden de las
+   columnas del archivo ya no importa; se reconoce por encabezado.
+2. Paso de VISTA PREVIA: [Previsualizar] parsea el archivo y muestra en
+   tabla cómo caería cada dato en los campos de Odoo, SIN escribir en la
+   base. Desde ahí se confirma con [Importar].
+3. Cuenta bancaria: Banco / Cuenta / CLABE ahora sí se cargan como
+   res.partner.bank del empleado (BUG corregido).
+4. Salario: una sola "Periodicidad" + "Monto por Periodo" → schedule_pay
+   + wage del contrato (el wage es el importe DEL PERIODO, como lo lee
+   mx_jandea_reglas_mx).
+5. "Categoría de pago" → hr.payroll.structure.type del contrato.
+6. "Fecha de Ingreso" calcula el inicio del contrato/versión. Se eliminó
+   por completo la "Fecha de Antigüedad".
+7. El contrato/versión se rellena automáticamente al crear al empleado.
+
+Flujo:
+  Configuración → [Previsualizar] → Vista previa → [Importar] → Resultados
+  (y, si está instalado mx_jandea_checkid, validación CheckId de los
+   seleccionados).
 """
 import base64
 import io
 import logging
+import unicodedata
 from datetime import datetime, date
 
 from odoo import models, fields, api, _
@@ -23,63 +37,60 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Mapa de columnas IMSS → índice (base 0)
+# Normalización de encabezados y mapeo por nombre de columna
 # ─────────────────────────────────────────────────────────────────────────────
-COL = {
-    'num':               0,
-    'cliente':           1,
-    'sucursal':          2,
-    'estatus':           3,
-    'esquema':           4,
-    'rp':                5,
-    'contrato':          6,
-    'apellido_pat':      7,
-    'apellido_mat':      8,
-    'nombre':            9,
-    'nombre_completo':   10,
-    'revc':              11,
-    'revdupli':          12,
-    'fecha_nac':         13,
-    'nacionalidad':      14,
-    'estado_civil':      15,
-    'genero':            16,
-    'domicilio':         17,
-    'calle':             18,
-    'num_ext':           19,
-    'colonia':           20,
-    'cp':                21,
-    'municipio':         22,
-    'estado':            23,
-    'correo':            24,
-    'nss':               25,
-    'nss_formulado':     26,
-    'nss_dupli':         27,
-    'rfc':               28,
-    'rfc_formulado':     29,
-    'rfc_dupli':         30,
-    'curp':              31,
-    'curp_formulado':    32,
-    'curp_dupli':        33,
-    'f_ingreso':         34,
-    'f_antiguedad':      35,
-    'puesto':            36,
-    'desc_puesto':       37,
-    'sueldo_mensual':    38,
-    'sueldo_quincenal':  39,
-    'sd':                40,
-    'credito_infonavit': 41,
-    'factor_desc':       42,
-    'pct_info':          43,
-    'pesos_info':        44,
-    'fonacot':           45,
-    'retencion_fonacot': 46,
-    'banco':             47,
-    'cuenta':            48,
-    'tarjeta':           49,
-    'clabe':             50,
-    'f_baja':            51,
+def _norm(text):
+    """minúsculas, sin acentos, sin signos, espacios colapsados."""
+    if text is None:
+        return ''
+    s = str(text).strip().lower()
+    s = ''.join(
+        c for c in unicodedata.normalize('NFKD', s)
+        if not unicodedata.combining(c)
+    )
+    out = []
+    for ch in s:
+        out.append(ch if ch.isalnum() else ' ')
+    return ' '.join(''.join(out).split())
+
+
+# canonical_key -> lista de encabezados aceptados (ya normalizados por _norm)
+HEADER_ALIASES = {
+    'apellido_pat':   ['apellido paterno', 'app', 'ap paterno'],
+    'apellido_mat':   ['apellido materno', 'apm', 'ap materno'],
+    'nombre':         ['nombres', 'nombre s', 'nombre', 'primer nombre'],
+    'rfc':            ['rfc'],
+    'curp':           ['curp'],
+    'nss':            ['nss', 'nss imss', 'numero de seguridad social', 'seguro social'],
+    'fecha_nac':      ['fecha de nacimiento', 'fecha nacimiento', 'f nac', 'nacimiento'],
+    'genero':         ['genero', 'sexo'],
+    'estado_civil':   ['estado civil'],
+    'nacionalidad':   ['nacionalidad'],
+    'correo':         ['correo', 'email', 'correo electronico', 'e mail'],
+    'calle':          ['calle'],
+    'num_ext':        ['numero exterior', 'num ext', 'no ext', 'no exterior', 'numext'],
+    'colonia':        ['colonia'],
+    'cp':             ['cp', 'c p', 'codigo postal'],
+    'municipio':      ['municipio', 'ciudad', 'delegacion', 'alcaldia'],
+    'estado':         ['estado', 'entidad'],
+    'f_ingreso':      ['fecha de ingreso', 'fecha ingreso', 'f ingreso', 'ingreso', 'fecha de alta'],
+    'puesto':         ['puesto', 'descripcion del puesto', 'desc puesto', 'cargo'],
+    'periodicidad':   ['periodicidad', 'periodo de pago', 'frecuencia de pago'],
+    'monto_periodo':  ['monto por periodo', 'monto periodo', 'monto', 'sueldo', 'importe'],
+    'categoria_pago': ['categoria de pago', 'categoria pago', 'tipo de estructura',
+                       'estructura', 'tipo estructura'],
+    'banco':          ['banco'],
+    'cuenta':         ['cuenta', 'no cuenta', 'numero de cuenta', 'no de cuenta'],
+    'clabe':          ['clabe', 'clabe interbancaria'],
+    'tarjeta':        ['tarjeta', 'no tarjeta', 'numero de tarjeta'],
+    'reg_patronal':   ['registro patronal', 'rp'],
+    'f_baja':         ['fecha de baja', 'f baja', 'baja'],
 }
+
+# Columnas mínimas obligatorias en el archivo
+REQUIRED_KEYS = ('nombre', 'apellido_pat', 'rfc', 'f_ingreso', 'periodicidad', 'monto_periodo')
 
 MARITAL_MAP = {
     'SOLTERO': 'single',  'SOLTERA': 'single',  'S': 'single',
@@ -88,6 +99,24 @@ MARITAL_MAP = {
     'VIUDO': 'widower',   'VIUDA': 'widower',   'V': 'widower',
     'U': 'single',
 }
+
+GENDER_MAP = {
+    'MASCULINO': 'male', 'HOMBRE': 'male', 'H': 'male',
+    'FEMENINO': 'female', 'MUJER': 'female', 'F': 'female', 'M': 'female',
+}
+
+# Periodicidad (texto del machote) → schedule_pay nativo de Odoo
+PERIOD_MAP = {
+    'MENSUAL': 'monthly', 'MES': 'monthly', 'MENSUALIDAD': 'monthly',
+    'QUINCENAL': 'semi-monthly', 'QUINCENA': 'semi-monthly', 'SEMI-MONTHLY': 'semi-monthly',
+    'CATORCENAL': 'bi-weekly', 'BI-WEEKLY': 'bi-weekly',
+    'SEMANAL': 'weekly', 'SEMANA': 'weekly', 'WEEKLY': 'weekly',
+}
+SCHEDULE_LABEL = {
+    'monthly': 'Mensual', 'semi-monthly': 'Quincenal',
+    'bi-weekly': 'Catorcenal', 'weekly': 'Semanal',
+}
+
 STATE_ABBR = {
     'AGS': 'Aguascalientes',      'BC': 'Baja California',
     'BCS': 'Baja California Sur', 'CAMP': 'Campeche',
@@ -109,44 +138,55 @@ STATE_ABBR = {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helpers de extracción de celda
+# Helpers de extracción de celda (usan colmap: canonical_key -> índice)
 # ─────────────────────────────────────────────────────────────────────────────
-def _val(row, col_name, default=''):
+def _val(row, colmap, key, default=''):
+    idx = colmap.get(key)
+    if idx is None:
+        return default
     try:
-        v = row[COL[col_name]]
-        if v is None or str(v).strip() in ('nan', 'NaT', 'None', ''):
-            return default
-        return str(v).strip()
+        v = row[idx]
     except (IndexError, KeyError):
         return default
+    if v is None or str(v).strip() in ('nan', 'NaT', 'None', ''):
+        return default
+    return str(v).strip()
 
 
-def _float_val(row, col_name, default=0.0):
+def _float_val(row, colmap, key, default=0.0):
+    idx = colmap.get(key)
+    if idx is None:
+        return default
     try:
-        v = row[COL[col_name]]
+        v = row[idx]
         if v is None or str(v).strip() in ('nan', 'NaT', 'None', ''):
             return default
-        return float(v)
+        return float(str(v).replace(',', '').replace('$', '').strip())
     except (IndexError, KeyError, ValueError, TypeError):
         return default
 
 
-def _date_val(row, col_name):
-    raw = _val(row, col_name)
+def _date_val(row, colmap, key):
+    raw = _val(row, colmap, key)
     if not raw or raw == 'NaT':
         return False
-    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%d/%m/%y'):
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%Y/%m/%d', '%d/%m/%y', '%m/%d/%Y'):
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:
             pass
+    # Serial de Excel
     try:
         import xlrd
         tup = xlrd.xldate_as_tuple(float(raw), 0)
         return date(*tup[:3])
     except Exception:
         pass
-    return False
+    # pandas Timestamp string
+    try:
+        return datetime.strptime(raw[:10], '%Y-%m-%d').date()
+    except Exception:
+        return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -154,7 +194,13 @@ def _date_val(row, col_name):
 # ─────────────────────────────────────────────────────────────────────────────
 class EmployeeImportWizard(models.TransientModel):
     _name = 'mx.jandea.employee.import.wizard'
-    _description = 'Importación Masiva de Empleados IMSS'
+    _description = 'Importación Masiva de Empleados'
+
+    state = fields.Selection([
+        ('draft', 'Configuración'),
+        ('preview', 'Vista previa'),
+        ('done', 'Resultados'),
+    ], default='draft', readonly=True)
 
     # ── Archivo ───────────────────────────────────────────────────────────────
     file_data = fields.Binary(string='Archivo XLS/XLSX', required=True, attachment=False)
@@ -183,6 +229,17 @@ class EmployeeImportWizard(models.TransientModel):
         string='Vincular empleados multiempresa por RFC', default=True,
     )
 
+    # ── Vista previa ──────────────────────────────────────────────────────────
+    preview_line_ids = fields.One2many(
+        'mx.jandea.employee.import.preview', 'wizard_id',
+        string='Vista previa',
+    )
+    preview_total = fields.Integer(string='Filas', readonly=True)
+    preview_new = fields.Integer(string='A crear', readonly=True)
+    preview_update = fields.Integer(string='A actualizar', readonly=True)
+    preview_skip = fields.Integer(string='A omitir', readonly=True)
+    preview_warn = fields.Integer(string='Con observaciones', readonly=True)
+
     # ── Resultados ────────────────────────────────────────────────────────────
     result_line_ids = fields.One2many(
         'mx.jandea.employee.import.result', 'wizard_id',
@@ -202,8 +259,6 @@ class EmployeeImportWizard(models.TransientModel):
     checkid_done = fields.Boolean(default=False, readonly=True)
     checkid_count_ok = fields.Integer(string='CheckId OK', readonly=True)
     checkid_count_error = fields.Integer(string='CheckId Error', readonly=True)
-
-    # Contadores para mostrar cuántos están seleccionados
     checkid_selected_count = fields.Integer(
         string='Seleccionados para CheckId',
         compute='_compute_checkid_selected_count',
@@ -226,145 +281,270 @@ class EmployeeImportWizard(models.TransientModel):
             )
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Acción principal de importación
+    # Lectura del archivo → (data_rows, colmap)
     # ──────────────────────────────────────────────────────────────────────────
-    def action_import(self):
+    def _read_source(self):
+        """Lee el binario y devuelve (data_rows, colmap). Valida encabezados."""
         self.ensure_one()
         if not self.file_data:
-            raise UserError(_('Seleccione un archivo XLS o XLSX para importar.'))
-
+            raise UserError(_('Seleccione un archivo XLS o XLSX.'))
         try:
             import pandas as pd
         except ImportError:
-            raise UserError(_(
-                'La librería pandas no está instalada en el servidor. '
-                'Contacte al administrador.'
-            ))
+            raise UserError(_('La librería pandas no está instalada en el servidor.'))
 
         file_bytes = base64.b64decode(self.file_data)
         fname = (self.file_name or '').lower()
-
         try:
-            if fname.endswith('.xls'):
-                df = pd.read_excel(io.BytesIO(file_bytes), engine='xlrd', header=None)
-            else:
-                df = pd.read_excel(io.BytesIO(file_bytes), engine='openpyxl', header=None)
+            engine = 'xlrd' if fname.endswith('.xls') else 'openpyxl'
+            df = pd.read_excel(io.BytesIO(file_bytes), engine=engine, header=None, dtype=str)
         except Exception as e:
-            raise UserError(_(f'Error al leer el archivo: {e}'))
+            raise UserError(_('Error al leer el archivo: %s') % e)
 
-        data_rows = df.values[self.header_row:]
+        hdr_idx = max(self.header_row - 1, 0)
+        try:
+            header_row = df.values[hdr_idx]
+        except IndexError:
+            raise UserError(_('El archivo no tiene la fila de encabezados indicada.'))
+
+        colmap = self._build_colmap(header_row)
+
+        missing = [k for k in REQUIRED_KEYS if k not in colmap]
+        if missing:
+            legibles = {
+                'nombre': 'Nombre(s)', 'apellido_pat': 'Apellido Paterno',
+                'rfc': 'RFC', 'f_ingreso': 'Fecha de Ingreso',
+                'periodicidad': 'Periodicidad', 'monto_periodo': 'Monto por Periodo',
+            }
+            raise UserError(_(
+                'No se encontraron estas columnas obligatorias en el archivo:\n%s\n\n'
+                'Revisa que los encabezados coincidan con el machote.'
+            ) % '\n'.join('• ' + legibles.get(m, m) for m in missing))
+
+        data_rows = df.values[hdr_idx + 1:]
+        return data_rows, colmap
+
+    def _build_colmap(self, header_values):
+        """Construye {canonical_key: índice_columna} a partir de la fila de encabezados."""
+        lookup = {}
+        for key, aliases in HEADER_ALIASES.items():
+            for a in aliases:
+                lookup[a] = key
+        colmap = {}
+        for idx, raw in enumerate(header_values):
+            n = _norm(raw)
+            if not n:
+                continue
+            key = lookup.get(n)
+            if key and key not in colmap:
+                colmap[key] = idx
+        return colmap
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # PASO 1: Vista previa (no escribe empleados)
+    # ──────────────────────────────────────────────────────────────────────────
+    def action_preview(self):
+        self.ensure_one()
+        data_rows, colmap = self._read_source()
+
+        self.preview_line_ids.unlink()
+        lines = []
+        total = new = upd = skip = warn = 0
+
+        for row_idx, row in enumerate(data_rows, start=self.header_row + 1):
+            nombre = _val(row, colmap, 'nombre')
+            ap_pat = _val(row, colmap, 'apellido_pat')
+            if not nombre and not ap_pat:
+                continue
+            total += 1
+
+            rfc = _val(row, colmap, 'rfc').upper().replace(' ', '')
+            ap_mat = _val(row, colmap, 'apellido_mat')
+            full_name = ' '.join(filter(None, [ap_pat, ap_mat, nombre]))
+
+            obs = []
+
+            rfc_ok = False
+            if rfc and self.validate_rfc_format:
+                rfc_ok, msg = self.env['hr.employee']._validate_rfc_format(rfc)
+                if not rfc_ok:
+                    obs.append(_('RFC: %s') % msg)
+            elif rfc:
+                rfc_ok = True
+            if not rfc:
+                obs.append(_('Sin RFC'))
+
+            per_raw = _val(row, colmap, 'periodicidad')
+            schedule = PERIOD_MAP.get(per_raw.upper())
+            if per_raw and not schedule:
+                obs.append(_('Periodicidad "%s" no reconocida') % per_raw)
+
+            monto = _float_val(row, colmap, 'monto_periodo')
+            if not monto:
+                obs.append(_('Sin monto por periodo'))
+
+            f_ing = _date_val(row, colmap, 'f_ingreso')
+            if not f_ing:
+                obs.append(_('Fecha de ingreso inválida'))
+
+            categoria = _val(row, colmap, 'categoria_pago')
+            stype = self._resolve_structure_type(categoria) if categoria else False
+            if categoria and not stype:
+                obs.append(_('Categoría de pago "%s" no encontrada') % categoria)
+
+            banco = _val(row, colmap, 'banco')
+            clabe = _val(row, colmap, 'clabe')
+            cuenta = _val(row, colmap, 'cuenta')
+            cta_display = clabe or cuenta
+            if banco and not self._find_bank(banco):
+                obs.append(_('Banco "%s" no está en el catálogo (se guardará la cuenta igual)') % banco)
+
+            existing = False
+            if rfc:
+                existing = self.env['hr.employee'].sudo().search([
+                    ('mx_rfc', '=', rfc), ('company_id', '=', self.company_id.id),
+                ], limit=1)
+            if existing and self.skip_duplicates and not self.update_existing:
+                planned = 'skip'; skip += 1
+            elif existing and self.update_existing:
+                planned = 'update'; upd += 1
+            else:
+                planned = 'new'; new += 1
+
+            if obs:
+                warn += 1
+
+            lines.append((0, 0, {
+                'row_number': row_idx,
+                'full_name': full_name,
+                'rfc': rfc,
+                'rfc_format_ok': rfc_ok,
+                'curp': _val(row, colmap, 'curp').upper().replace(' ', ''),
+                'nss': _val(row, colmap, 'nss'),
+                'f_ingreso': f_ing or False,
+                'periodicidad': SCHEDULE_LABEL.get(schedule, per_raw),
+                'monto_periodo': monto,
+                'categoria_pago': categoria,
+                'banco': banco,
+                'cuenta_clabe': cta_display,
+                'planned_action': planned,
+                'observaciones': ' | '.join(obs),
+            }))
+
+        self.write({
+            'preview_line_ids': lines,
+            'preview_total': total,
+            'preview_new': new,
+            'preview_update': upd,
+            'preview_skip': skip,
+            'preview_warn': warn,
+            'state': 'preview',
+        })
+        return self._reopen()
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # PASO 2: Importación real
+    # ──────────────────────────────────────────────────────────────────────────
+    def action_import(self):
+        self.ensure_one()
+        data_rows, colmap = self._read_source()
+
         results = []
         created = updated = skipped = errors = 0
 
         for row_idx, row in enumerate(data_rows, start=self.header_row + 1):
-            nombre = _val(row, 'nombre')
-            apellido_pat = _val(row, 'apellido_pat')
+            nombre = _val(row, colmap, 'nombre')
+            apellido_pat = _val(row, colmap, 'apellido_pat')
             if not nombre and not apellido_pat:
                 continue
 
-            rfc = _val(row, 'rfc').upper().replace(' ', '')
-            full_name = f'{apellido_pat} {_val(row, "apellido_mat")} {nombre}'.strip()
+            rfc = _val(row, colmap, 'rfc').upper().replace(' ', '')
+            full_name = ' '.join(filter(None, [
+                apellido_pat, _val(row, colmap, 'apellido_mat'), nombre
+            ])).strip()
 
-            # Validación RFC
             rfc_format_ok = False
             if rfc and self.validate_rfc_format:
-                rfc_format_ok, _rfc_msg = self.env['hr.employee']._validate_rfc_format(rfc)
+                rfc_format_ok, _m = self.env['hr.employee']._validate_rfc_format(rfc)
             elif rfc:
                 rfc_format_ok = True
 
-            # Duplicado
             existing = False
             if rfc:
                 existing = self.env['hr.employee'].sudo().search([
-                    ('mx_rfc', '=', rfc),
-                    ('company_id', '=', self.company_id.id),
+                    ('mx_rfc', '=', rfc), ('company_id', '=', self.company_id.id),
                 ], limit=1)
 
             if existing and self.skip_duplicates and not self.update_existing:
                 results.append({
-                    'row': row_idx, 'name': full_name, 'rfc': rfc,
-                    'status': 'skipped',
+                    'row': row_idx, 'name': full_name, 'rfc': rfc, 'status': 'skipped',
                     'message': _('Empleado ya existe (RFC duplicado en esta empresa).'),
-                    'rfc_format_ok': rfc_format_ok,
-                    'employee_id': existing.id,
-                    # Los omitidos también pueden seleccionarse para CheckId
+                    'rfc_format_ok': rfc_format_ok, 'employee_id': existing.id,
                     'checkid_selected': False,
                 })
                 skipped += 1
                 continue
 
-            # Preparar vals
             try:
-                vals_create, vals_write = self._build_employee_vals(row, rfc, rfc_format_ok)
+                vals_create, vals_write, bank_data = self._build_employee_vals(
+                    row, colmap, rfc, rfc_format_ok
+                )
             except Exception as e:
                 results.append({
-                    'row': row_idx, 'name': full_name, 'rfc': rfc,
-                    'status': 'error', 'message': repr(e),
-                    'rfc_format_ok': rfc_format_ok,
+                    'row': row_idx, 'name': full_name, 'rfc': rfc, 'status': 'error',
+                    'message': repr(e), 'rfc_format_ok': rfc_format_ok,
                     'checkid_selected': False,
                 })
                 errors += 1
                 continue
 
-            # Crear o actualizar
             try:
                 if existing and self.update_existing:
-                    # Para update: combinar todo en un solo write
-                    all_vals = {**vals_create, **vals_write}
-                    existing.sudo().write(all_vals)
+                    existing.sudo().write({**vals_create, **vals_write})
                     emp = existing
-                    action = 'updated'
-                    updated += 1
+                    action = 'updated'; updated += 1
                 else:
-                    # Log de vals_create para debug
-                    _logger.info('IMPORT DEBUG vals_create: %s', vals_create)
-                    _logger.info('IMPORT DEBUG vals_write keys: %s', list(vals_write.keys()))
-                    # Create con campos mínimos
                     emp = (
-                        self.env['hr.employee']
-                        .sudo()
-                        .with_company(self.company_id)
-                        .create(vals_create)
+                        self.env['hr.employee'].sudo()
+                        .with_company(self.company_id).create(vals_create)
                     )
-                    _logger.info('IMPORT DEBUG create OK: emp.id=%s', emp.id)
-                    # Write post-create campo por campo para aislar el error
                     for fname, fval in vals_write.items():
                         try:
                             emp.sudo().write({fname: fval})
-                            _logger.info('IMPORT DEBUG write OK: %s = %r', fname, fval)
-                        except Exception as field_err:
+                        except Exception:
                             import traceback
                             _logger.error(
-                                'IMPORT DEBUG write FAIL campo="%s" val=%r\n%s',
+                                'IMPORT write FAIL campo="%s" val=%r\n%s',
                                 fname, fval, traceback.format_exc()
                             )
-                    action = 'created'
-                    created += 1
+                    action = 'created'; created += 1
+
+                # Cuenta bancaria (BUG corregido)
+                bank_msg = ''
+                try:
+                    if bank_data.get('acc'):
+                        self._set_bank_account(emp, bank_data)
+                except Exception:
+                    import traceback
+                    _logger.error('IMPORT bank FAIL fila %d\n%s', row_idx, traceback.format_exc())
+                    bank_msg = _(' (cuenta bancaria no cargada)')
 
                 results.append({
-                    'row': row_idx, 'name': emp.name, 'rfc': rfc,
-                    'status': action, 'message': _('OK'),
-                    'employee_id': emp.id,
-                    'rfc_format_ok': rfc_format_ok,
-                    # Pre-seleccionar para CheckId solo los creados/actualizados
-                    'checkid_selected': True,
+                    'row': row_idx, 'name': emp.name, 'rfc': rfc, 'status': action,
+                    'message': _('OK') + bank_msg, 'employee_id': emp.id,
+                    'rfc_format_ok': rfc_format_ok, 'checkid_selected': True,
                 })
 
             except Exception as e:
                 import traceback as _tb
-                _logger.error(
-                    'IMPORT ERROR COMPLETO fila %d:\n%s',
-                    row_idx, _tb.format_exc()
-                )
+                _logger.error('IMPORT ERROR fila %d:\n%s', row_idx, _tb.format_exc())
                 results.append({
-                    'row': row_idx, 'name': full_name, 'rfc': rfc,
-                    'status': 'error', 'message': repr(e)[:200],
-                    'rfc_format_ok': rfc_format_ok,
+                    'row': row_idx, 'name': full_name, 'rfc': rfc, 'status': 'error',
+                    'message': repr(e)[:200], 'rfc_format_ok': rfc_format_ok,
                     'checkid_selected': False,
                 })
                 errors += 1
 
-        # Vincular multiempresa
         if self.link_multicompany:
             rfcs_ok = {
                 r['rfc'] for r in results
@@ -373,257 +553,281 @@ class EmployeeImportWizard(models.TransientModel):
             for rfc in rfcs_ok:
                 self.env['hr.employee']._link_multicompany_by_rfc(rfc)
 
-        # Guardar resultados
         self.write({
             'result_line_ids': [
                 (0, 0, {
-                    'wizard_id': self.id,
-                    'row_number': r['row'],
-                    'employee_name': r['name'],
-                    'rfc': r['rfc'],
-                    'status': r['status'],
-                    'message': r['message'],
+                    'row_number': r['row'], 'employee_name': r['name'], 'rfc': r['rfc'],
+                    'status': r['status'], 'message': r['message'],
                     'employee_id': r.get('employee_id', False),
                     'rfc_format_ok': r.get('rfc_format_ok', False),
                     'checkid_selected': r.get('checkid_selected', False),
                     'checkid_status': 'pending',
-                })
-                for r in results
+                }) for r in results
             ],
-            'import_done': True,
-            'count_created': created,
-            'count_updated': updated,
-            'count_skipped': skipped,
-            'count_error': errors,
+            'import_done': True, 'state': 'done',
+            'count_created': created, 'count_updated': updated,
+            'count_skipped': skipped, 'count_error': errors,
         })
+        return self._reopen()
 
+    def action_back_to_config(self):
+        self.ensure_one()
+        self.write({'state': 'draft'})
+        return self._reopen()
+
+    def _reopen(self):
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'mx.jandea.employee.import.wizard',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'new',
+            'res_id': self.id, 'view_mode': 'form', 'target': 'new',
         }
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Construcción de vals → campos nativos Odoo 17
+    # Construcción de vals → campos nativos
     # ──────────────────────────────────────────────────────────────────────────
-    def _build_employee_vals(self, row, rfc, rfc_format_ok):
-        """
-        Retorna (vals_create, vals_write).
-        vals_create: SOLO name + company_id. Nada más en el create inicial.
-        vals_write:  TODO lo demás, se escribe campo por campo post-create.
-        """
-        nombre    = _val(row, 'nombre')
-        ap_pat    = _val(row, 'apellido_pat')
-        ap_mat    = _val(row, 'apellido_mat')
+    def _build_employee_vals(self, row, colmap, rfc, rfc_format_ok):
+        """Retorna (vals_create, vals_write, bank_data)."""
+        emp_fields = self.env['hr.employee']._fields
+
+        nombre = _val(row, colmap, 'nombre')
+        ap_pat = _val(row, colmap, 'apellido_pat')
+        ap_mat = _val(row, colmap, 'apellido_mat')
         full_name = ' '.join(filter(None, [ap_pat, ap_mat, nombre])) or 'Sin nombre'
 
-        # MÍNIMO ABSOLUTO — solo name y company_id
-        vals_create = {
-            'name':       full_name,
-            'company_id': self.company_id.id,
-        }
-
-        # ── vals_write: campos custom MX + campos hr.version ──────────────
+        vals_create = {'name': full_name, 'company_id': self.company_id.id}
         vals_write = {}
 
-        correo = _val(row, 'correo')
+        correo = _val(row, colmap, 'correo')
         if correo:
             vals_write['work_email'] = correo
 
-        curp = _val(row, 'curp').upper().replace(' ', '')
+        curp = _val(row, colmap, 'curp').upper().replace(' ', '')
         if rfc:
-            vals_write['mx_rfc']              = rfc
+            vals_write['mx_rfc'] = rfc
             vals_write['rfc_validated_format'] = rfc_format_ok
         if curp:
-            vals_write['mx_curp']          = curp
+            vals_write['mx_curp'] = curp
             vals_write['identification_id'] = curp
-            emp_model = self.env['hr.employee']
-            if 'l10n_mx_edi_curp' in emp_model._fields:
+            if 'l10n_mx_edi_curp' in emp_fields:
                 vals_write['l10n_mx_edi_curp'] = curp
 
-        nss_raw = _val(row, 'nss')
+        nss_raw = _val(row, colmap, 'nss')
         if nss_raw:
-            vals_write['nss']   = nss_raw
-            vals_write['ssnid'] = nss_raw
+            vals_write['nss'] = nss_raw
+            if 'ssnid' in emp_fields:
+                vals_write['ssnid'] = nss_raw
 
-        marital = MARITAL_MAP.get(_val(row, 'estado_civil').upper())
+        marital = MARITAL_MAP.get(_val(row, colmap, 'estado_civil').upper())
         if marital:
             vals_write['marital'] = marital
 
-        fnac = _date_val(row, 'fecha_nac')
+        genero = GENDER_MAP.get(_val(row, colmap, 'genero').upper().strip())
+        if genero and 'gender' in emp_fields:
+            vals_write['gender'] = genero
+
+        fnac = _date_val(row, colmap, 'fecha_nac')
         if fnac:
             vals_write['birthday'] = fnac
 
-        calle  = _val(row, 'calle')
-        numext = _val(row, 'num_ext')
-        colonia = _val(row, 'colonia')
-        street  = ' '.join(filter(None, [calle, numext]))
+        # Domicilio
+        calle = _val(row, colmap, 'calle')
+        numext = _val(row, colmap, 'num_ext')
+        colonia = _val(row, colmap, 'colonia')
+        street = ' '.join(filter(None, [calle, numext]))
         if colonia:
             street = (street + ', ' + colonia).strip(', ')
-        if street:
+        if street and 'private_street' in emp_fields:
             vals_write['private_street'] = street
-
-        ciudad = _val(row, 'municipio')
-        if ciudad:
+        ciudad = _val(row, colmap, 'municipio')
+        if ciudad and 'private_city' in emp_fields:
             vals_write['private_city'] = ciudad
-
-        cp = _val(row, 'cp')
-        if cp:
+        cp = _val(row, colmap, 'cp')
+        if cp and 'private_zip' in emp_fields:
             vals_write['private_zip'] = cp
-
-        estado_raw = _val(row, 'estado').upper()
-        if estado_raw:
-            state_name  = STATE_ABBR.get(estado_raw, estado_raw)
-            mx_country  = self.env.ref('base.mx', raise_if_not_found=False)
+        estado_raw = _val(row, colmap, 'estado').upper()
+        if estado_raw and 'private_state_id' in emp_fields:
+            state_name = STATE_ABBR.get(estado_raw, estado_raw)
+            mx_country = self.env.ref('base.mx', raise_if_not_found=False)
             if mx_country:
                 state = self.env['res.country.state'].sudo().search([
                     ('country_id', '=', mx_country.id),
-                    '|',
-                    ('name', 'ilike', state_name),
-                    ('code', '=ilike', estado_raw),
+                    '|', ('name', 'ilike', state_name), ('code', '=ilike', estado_raw),
                 ], limit=1)
                 if state:
-                    vals_write['private_state_id']  = state.id
-                    vals_write['private_country_id'] = mx_country.id
+                    vals_write['private_state_id'] = state.id
+                    if 'private_country_id' in emp_fields:
+                        vals_write['private_country_id'] = mx_country.id
 
-        f_ingreso = _date_val(row, 'f_ingreso')
+        # ── CONTRATO / VERSIÓN (automático) ───────────────────────────────
+        # Fecha de ingreso → inicio de contrato (ya NO se usa antigüedad)
+        f_ingreso = _date_val(row, colmap, 'f_ingreso')
         if f_ingreso:
-            vals_write['contract_date_start'] = f_ingreso
+            if 'contract_date_start' in emp_fields:
+                vals_write['contract_date_start'] = f_ingreso
+            if 'date_version' in emp_fields:
+                vals_write['date_version'] = f_ingreso
 
-        puesto = _val(row, 'desc_puesto') or _val(row, 'puesto')
-        if puesto:
+        # Periodicidad → schedule_pay
+        schedule = PERIOD_MAP.get(_val(row, colmap, 'periodicidad').upper())
+        if schedule and 'schedule_pay' in emp_fields:
+            vals_write['schedule_pay'] = schedule
+
+        # Monto por periodo → wage (importe del periodo)
+        monto = _float_val(row, colmap, 'monto_periodo')
+        if monto and 'wage' in emp_fields:
+            vals_write['wage'] = monto
+
+        # Categoría de pago → tipo de estructura
+        categoria = _val(row, colmap, 'categoria_pago')
+        if categoria:
+            stype = self._resolve_structure_type(categoria)
+            if stype and 'structure_type_id' in emp_fields:
+                vals_write['structure_type_id'] = stype
+
+        # Puesto
+        puesto = _val(row, colmap, 'puesto')
+        if puesto and 'job_title' in emp_fields:
             vals_write['job_title'] = puesto
 
-        sueldo = _float_val(row, 'sueldo_mensual')
-        if sueldo:
-            vals_write['wage'] = sueldo
+        # Fecha de baja
+        f_baja = _date_val(row, colmap, 'f_baja')
+        if f_baja and 'departure_date' in emp_fields:
+            vals_write['departure_date'] = f_baja
 
-        return vals_create, vals_write
+        # Datos de banco (se procesan aparte, post-create)
+        bank_data = {
+            'banco':  _val(row, colmap, 'banco'),
+            'clabe':  _val(row, colmap, 'clabe').replace(' ', ''),
+            'cuenta': _val(row, colmap, 'cuenta').replace(' ', ''),
+        }
+        bank_data['acc'] = bank_data['clabe'] or bank_data['cuenta']
+
+        return vals_create, vals_write, bank_data
 
     # ──────────────────────────────────────────────────────────────────────────
-    # Selección masiva de CheckId
+    # Catálogos: tipo de estructura y banco
+    # ──────────────────────────────────────────────────────────────────────────
+    def _resolve_structure_type(self, text):
+        if not text:
+            return False
+        STT = self.env['hr.payroll.structure.type'].sudo()
+        st = STT.search([('name', 'ilike', text)], limit=1)
+        return st.id if st else False
+
+    def _find_bank(self, banco):
+        if not banco:
+            return False
+        return self.env['res.bank'].sudo().search([
+            '|', ('name', 'ilike', banco), ('bic', '=ilike', banco)
+        ], limit=1)
+
+    def _set_bank_account(self, emp, bank_data):
+        """Crea/asigna la cuenta bancaria (res.partner.bank) del empleado."""
+        acc = bank_data.get('acc')
+        if not acc:
+            return False
+
+        # Partner destino de la cuenta: el contacto de trabajo del empleado.
+        partner = getattr(emp, 'work_contact_id', False)
+        if not partner:
+            partner = self.env['res.partner'].sudo().create({
+                'name': emp.name, 'company_id': emp.company_id.id,
+            })
+            if 'work_contact_id' in emp._fields:
+                emp.sudo().write({'work_contact_id': partner.id})
+
+        bank = self._find_bank(bank_data.get('banco'))
+
+        RPB = self.env['res.partner.bank'].sudo()
+        existing = RPB.search([
+            ('acc_number', '=', acc), ('partner_id', '=', partner.id)
+        ], limit=1)
+        if existing:
+            partner_bank = existing
+            if bank and not existing.bank_id:
+                existing.write({'bank_id': bank.id})
+        else:
+            partner_bank = RPB.with_company(emp.company_id).create({
+                'acc_number': acc,
+                'partner_id': partner.id,
+                'bank_id': bank.id if bank else False,
+                'company_id': emp.company_id.id,
+            })
+
+        # Asignar como cuenta de nómina del empleado (el nombre del campo varía por versión)
+        if 'bank_account_id' in emp._fields:
+            emp.sudo().write({'bank_account_id': partner_bank.id})
+        elif 'bank_account_ids' in emp._fields:
+            emp.sudo().write({'bank_account_ids': [(4, partner_bank.id)]})
+        return partner_bank
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # CheckId (sin cambios funcionales)
     # ──────────────────────────────────────────────────────────────────────────
     def action_select_all_checkid(self):
-        """Marca todos los registros con empleado vinculado para CheckId."""
         self.ensure_one()
-        seleccionables = self.result_line_ids.filtered(
+        self.result_line_ids.filtered(
             lambda l: l.employee_id and l.status in ('created', 'updated', 'skipped')
-        )
-        seleccionables.write({'checkid_selected': True})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'mx.jandea.employee.import.wizard',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'new',
-        }
+        ).write({'checkid_selected': True})
+        return self._reopen()
 
     def action_deselect_all_checkid(self):
-        """Desmarca todos los registros."""
         self.ensure_one()
         self.result_line_ids.write({'checkid_selected': False})
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'mx.jandea.employee.import.wizard',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'new',
-        }
+        return self._reopen()
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # Ejecutar CheckId sobre los seleccionados
-    # ──────────────────────────────────────────────────────────────────────────
     def action_checkid_validate_selected(self):
-        """
-        Valida con CheckId SOLO los registros marcados con checkid_selected=True.
-        Llama directamente a action_checkid_consultar() del empleado (método
-        nativo de mx_jandea_checkid) para evitar problemas con el término.
-        """
         self.ensure_one()
-
         lines_selected = self.result_line_ids.filtered(
             lambda l: l.checkid_selected and l.employee_id
         )
         if not lines_selected:
             raise UserError(_(
                 'No hay registros seleccionados para validar.\n'
-                'Marca el checkbox ✓ en la columna "CheckId" de los empleados '
-                'que deseas consultar.'
+                'Marca el checkbox ✓ en la columna "CheckId".'
             ))
 
         ok = errors = 0
         for line in lines_selected:
             emp = line.employee_id
-
-            # ── Obtener término de búsqueda ────────────────────────────────
-            # Prioridad: _get_termino_busqueda del checkid (ssnid/l10n_mx_edi_curp)
-            # Fallback:  mx_rfc / mx_curp (campos de este módulo)
             termino = ''
             try:
                 if hasattr(emp, '_get_termino_busqueda'):
                     termino = (emp._get_termino_busqueda() or '').strip()
             except Exception as te:
                 _logger.warning('_get_termino_busqueda error: %s', te)
-
             if not termino:
                 for fname in ('mx_curp', 'mx_rfc'):
                     val = emp._fields.get(fname) and emp[fname]
                     if val and isinstance(val, str) and val.strip():
                         termino = val.strip().upper()
                         break
-
             if not termino:
-                line.write({
-                    'checkid_status': 'error',
-                    'checkid_message': 'Sin RFC ni CURP registrado en el empleado.',
-                })
+                line.write({'checkid_status': 'error',
+                            'checkid_message': 'Sin RFC ni CURP registrado en el empleado.'})
                 errors += 1
                 continue
-
-            # ── Ejecutar consulta ──────────────────────────────────────────
             try:
                 emp.sudo()._ejecutar_consulta_checkid(termino)
                 emp.invalidate_recordcache(['checkid_estado_consulta'])
                 estado = emp.sudo().checkid_estado_consulta or 'ok'
                 if estado == 'advertencia':
-                    msg = 'Advertencia: problema 69/69B detectado.'
-                    chk_status = 'warning'
+                    line.write({'checkid_status': 'warning',
+                                'checkid_message': 'Advertencia: problema 69/69B detectado.'})
                 else:
-                    msg = 'Consulta exitosa.'
-                    chk_status = 'ok'
-                line.write({'checkid_status': chk_status, 'checkid_message': msg})
+                    line.write({'checkid_status': 'ok', 'checkid_message': 'Consulta exitosa.'})
                 ok += 1
             except Exception as e:
-                # Capturar el mensaje de forma segura sin re-llamar a __str__
                 try:
-                    import traceback
-                    err_msg = traceback.format_exc()
-                    _logger.error('CheckId traceback completo:\n%s', err_msg)
                     err_msg = repr(e)
                 except Exception:
                     err_msg = 'Error desconocido en CheckId'
                 _logger.warning('CheckId error para %s: %s', emp.name, err_msg)
-                line.write({
-                    'checkid_status': 'error',
-                    'checkid_message': err_msg[:200],
-                })
+                line.write({'checkid_status': 'error', 'checkid_message': err_msg[:200]})
                 errors += 1
 
-        self.write({
-            'checkid_done': True,
-            'checkid_count_ok': ok,
-            'checkid_count_error': errors,
-        })
-
-        return {
-            'type': 'ir.actions.act_window',
-            'res_model': 'mx.jandea.employee.import.wizard',
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'new',
-        }
+        self.write({'checkid_done': True, 'checkid_count_ok': ok, 'checkid_count_error': errors})
+        return self._reopen()
 
     def action_close(self):
         return {'type': 'ir.actions.act_window_close'}
@@ -643,7 +847,34 @@ class EmployeeImportWizard(models.TransientModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Modelo de resultados — ahora con checkboxes y estado CheckId por línea
+# Línea de VISTA PREVIA
+# ─────────────────────────────────────────────────────────────────────────────
+class EmployeeImportPreview(models.TransientModel):
+    _name = 'mx.jandea.employee.import.preview'
+    _description = 'Vista previa de importación de empleado'
+    _order = 'row_number'
+
+    wizard_id = fields.Many2one('mx.jandea.employee.import.wizard', ondelete='cascade')
+    row_number = fields.Integer(string='Fila')
+    full_name = fields.Char(string='Nombre')
+    rfc = fields.Char(string='RFC')
+    rfc_format_ok = fields.Boolean(string='RFC ✓')
+    curp = fields.Char(string='CURP')
+    nss = fields.Char(string='NSS')
+    f_ingreso = fields.Date(string='Fecha ingreso')
+    periodicidad = fields.Char(string='Periodicidad')
+    monto_periodo = fields.Float(string='Monto/periodo')
+    categoria_pago = fields.Char(string='Categoría de pago')
+    banco = fields.Char(string='Banco')
+    cuenta_clabe = fields.Char(string='Cuenta/CLABE')
+    planned_action = fields.Selection([
+        ('new', 'Crear'), ('update', 'Actualizar'), ('skip', 'Omitir'),
+    ], string='Acción')
+    observaciones = fields.Char(string='Observaciones')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resultado de importación
 # ─────────────────────────────────────────────────────────────────────────────
 class EmployeeImportResult(models.TransientModel):
     _name = 'mx.jandea.employee.import.result'
@@ -655,24 +886,15 @@ class EmployeeImportResult(models.TransientModel):
     rfc = fields.Char(string='RFC')
     rfc_format_ok = fields.Boolean(string='RFC ✓')
     status = fields.Selection([
-        ('created', 'Creado'),
-        ('updated', 'Actualizado'),
-        ('skipped', 'Omitido'),
-        ('error', 'Error'),
+        ('created', 'Creado'), ('updated', 'Actualizado'),
+        ('skipped', 'Omitido'), ('error', 'Error'),
     ], string='Resultado')
     message = fields.Char(string='Mensaje')
     employee_id = fields.Many2one('hr.employee', string='Empleado')
 
-    # ── CheckId por línea ─────────────────────────────────────────────────────
-    checkid_selected = fields.Boolean(
-        string='CheckId',
-        default=False,
-        help='Marca este registro para validarlo con CheckId.',
-    )
+    checkid_selected = fields.Boolean(string='CheckId', default=False)
     checkid_status = fields.Selection([
-        ('pending', 'Pendiente'),
-        ('ok', 'OK'),
-        ('warning', '⚠ Advertencia 69/69B'),
-        ('error', 'Error'),
+        ('pending', 'Pendiente'), ('ok', 'OK'),
+        ('warning', '⚠ Advertencia 69/69B'), ('error', 'Error'),
     ], string='Estado CheckId', default='pending')
     checkid_message = fields.Char(string='Resultado CheckId', readonly=True)

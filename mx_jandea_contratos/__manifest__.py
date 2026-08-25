@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Documentos e Impresión de Contratos',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'summary': 'Selecciona e imprime contratos, altas y bajas desde la ficha del empleado',
     'description': """
         Motor genérico de plantillas (.docx con placeholders {{ }}) impreso

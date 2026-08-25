@@ -49,4 +49,39 @@
         <field name="file" type="base64" file="mx_jandea_contratos/static/templates/cpsp_krino_mujer.docx"/>
         <field name="note">Placeholders: nombre_trabajador</field>
     </record>
+
+    <!-- ============================================================
+         Licencias Internacionales / Stylos y Shows S.A. de C.V.
+         (los datos de empresa y cláusulas son fijos; solo se rellenan
+          los datos del empleado desde su ficha)
+         ============================================================ -->
+    <record id="doc_template_cit_licencias_indeterminado_prueba" model="hr.document.template">
+        <field name="name">CIT Indeterminado con Periodo de Prueba - Licencias Internacionales</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">unisex</field>
+        <field name="empresa_referencia">Stylos y Shows S.A. de C.V. (Licencias Internacionales)</field>
+        <field name="filename">cit_licencias_indeterminado_prueba.docx</field>
+        <field name="file" type="base64" file="mx_jandea_contratos/static/templates/cit_licencias_indeterminado_prueba.docx"/>
+        <field name="note">Placeholders: apellido_paterno, apellido_materno, nombres, nacionalidad, edad, sexo, curp, rfc, nss, calle_y_n, colonia, cp, municipio, estado, puesto, fecha_ingreso_texto, sueldo_mensual, sueldo_letra, banco, clabe, horario</field>
+    </record>
+
+    <record id="doc_template_cit_licencias_reconocimiento_antiguedad" model="hr.document.template">
+        <field name="name">CIT Indeterminado con Reconocimiento de Antigüedad - Licencias Internacionales</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">unisex</field>
+        <field name="empresa_referencia">Stylos y Shows S.A. de C.V. (Licencias Internacionales)</field>
+        <field name="filename">cit_licencias_reconocimiento_antiguedad.docx</field>
+        <field name="file" type="base64" file="mx_jandea_contratos/static/templates/cit_licencias_reconocimiento_antiguedad.docx"/>
+        <field name="note">Placeholders: apellido_paterno, apellido_materno, nombres, nacionalidad, edad, sexo, curp, rfc, nss, calle_y_n, colonia, cp, municipio, estado, puesto, fecha_ingreso_texto, fecha_antiguedad_texto, sueldo_mensual, sueldo_letra, banco, clabe, sucursal, representante_legal</field>
+    </record>
+
+    <record id="doc_template_contrato_tiempo_determinado" model="hr.document.template">
+        <field name="name">Contrato por Tiempo Determinado - Licencias Internacionales</field>
+        <field name="doc_type">contrato</field>
+        <field name="gender">unisex</field>
+        <field name="empresa_referencia">Stylos y Shows S.A. de C.V. (Licencias Internacionales)</field>
+        <field name="filename">contrato_tiempo_determinado.docx</field>
+        <field name="file" type="base64" file="mx_jandea_contratos/static/templates/contrato_tiempo_determinado.docx"/>
+        <field name="note">Placeholders: apellido_paterno, apellido_materno, nombres, edad, sexo, estado_civil, curp, rfc, nss, calle_y_n, colonia, cp, municipio, estado, puesto, fecha_ingreso_texto, vigencia_dias, fecha_termino_texto, sueldo_mensual, sueldo_letra, sucursal, representante_legal</field>
+    </record>
 </odoo>

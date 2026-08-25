@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Préstamos a Empleados',
-    'version': '19.0.1.0.4',
+    'version': '19.0.1.1.0',
     'summary': 'Préstamos con calendario de pagos y descuento automático en nómina',
     'description': """
         Gestión de préstamos a empleados con calendario de pagos sobre el

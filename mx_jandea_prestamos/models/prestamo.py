@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from math import ceil
+from datetime import date
 
 from dateutil.relativedelta import relativedelta
 
@@ -83,13 +84,63 @@ class MxJandeaPrestamo(models.Model):
         for r in self:
             r.payslip_count = len(r.attachment_id.sudo().payslip_ids)
 
-    def _delta(self):
+    # ── Fechas alineadas a los periodos de nómina ─────────────────────────
+    # Convención acordada:
+    #   • Mensual   → último día de cada mes.
+    #   • Quincenal → día 15 y último día de cada mes.
+    #   • Semanal   → cada 7 días a partir de la fecha de inicio.
+    @staticmethod
+    def _ultimo_dia_mes(d):
+        import calendar
+        return date(d.year, d.month, calendar.monthrange(d.year, d.month)[1])
+
+    @classmethod
+    def _next_quincena(cls, d):
+        """Primer corte quincenal (día 15 o último día) en o después de d."""
+        dia15 = date(d.year, d.month, 15)
+        ultimo = cls._ultimo_dia_mes(d)
+        if d <= dia15:
+            return dia15
+        if d <= ultimo:
+            return ultimo
+        nm = d + relativedelta(months=1)
+        return date(nm.year, nm.month, 15)
+
+    @classmethod
+    def _advance_quincena(cls, corte):
+        """Del día 15 pasa al último día del mes; del último día pasa al 15 del mes siguiente."""
+        if corte.day == 15:
+            return cls._ultimo_dia_mes(corte)
+        nm = corte + relativedelta(days=1)  # primero del mes siguiente
+        return date(nm.year, nm.month, 15)
+
+    def _fechas_calendario(self, n):
+        """Lista de n fechas de descuento alineadas al periodo de nómina."""
         self.ensure_one()
-        if self.periodicidad == 'semanal':
-            return relativedelta(weeks=1)
+        start = self.fecha_inicio
+        fechas = []
         if self.periodicidad == 'mensual':
-            return relativedelta(months=1)
-        return relativedelta(weeks=2)  # quincenal
+            f = self._ultimo_dia_mes(start)
+            for _i in range(n):
+                fechas.append(f)
+                f = self._ultimo_dia_mes(f + relativedelta(days=1))
+        elif self.periodicidad == 'quincenal':
+            f = self._next_quincena(start)
+            for _i in range(n):
+                fechas.append(f)
+                f = self._advance_quincena(f)
+        else:  # semanal u otro
+            f = start
+            for _i in range(n):
+                fechas.append(f)
+                f = f + relativedelta(weeks=1)
+        return fechas
+
+    def _primera_fecha(self):
+        """Primera fecha de descuento alineada (para arrancar el ajuste salarial)."""
+        self.ensure_one()
+        fechas = self._fechas_calendario(1)
+        return fechas[0] if fechas else self.fecha_inicio
 
     def action_confirmar(self):
         for r in self:
@@ -101,6 +152,9 @@ class MxJandeaPrestamo(models.Model):
                 raise UserError(_('El monto por período no puede ser mayor que el monto total.'))
 
             input_type = self.env.ref('mx_jandea_prestamos.input_type_prestamo')
+            # El descuento arranca en la primera fecha alineada al periodo de
+            # nómina (día 15 / último día / etc.), no en la fecha capturada.
+            primera_fecha = r._primera_fecha()
             # with_company: fuerza el contexto de compañía del préstamo para que
             # la regla nativa de hr.salary.attachment no bloquee la creación.
             attachment = self.env['hr.salary.attachment'].with_company(r.company_id).create({
@@ -111,7 +165,7 @@ class MxJandeaPrestamo(models.Model):
                 'duration_type': 'limited',
                 'monthly_amount': r.monto_periodo,
                 'total_amount': r.monto_total,
-                'date_start': r.fecha_inicio,
+                'date_start': primera_fecha,
                 'state': 'open',
             })
             if attachment.duration_type != 'limited':
@@ -125,26 +179,32 @@ class MxJandeaPrestamo(models.Model):
     def _generar_calendario(self):
         self.ensure_one()
         self.linea_ids.unlink()
-        lineas = []
+
+        # 1) Montos por periodo (el último ajusta el residuo).
+        montos = []
         restante = self.monto_total
-        acumulado = 0.0
-        fecha = self.fecha_inicio
-        delta = self._delta()
-        secuencia = 1
-        # tope de seguridad para evitar bucles infinitos
-        while restante > 0.0001 and secuencia <= 600:
+        while restante > 0.0001 and len(montos) < 600:
             monto = min(self.monto_periodo, restante)
             restante = round(restante - monto, 2)
+            montos.append(monto)
+
+        # 2) Fechas alineadas al periodo de nómina (15 / último día / etc.).
+        fechas = self._fechas_calendario(len(montos))
+
+        # 3) Construir líneas.
+        lineas = []
+        acumulado = 0.0
+        saldo = self.monto_total
+        for i, monto in enumerate(montos):
+            saldo = round(saldo - monto, 2)
             acumulado = round(acumulado + monto, 2)
             lineas.append((0, 0, {
-                'secuencia': secuencia,
-                'fecha': fecha,
+                'secuencia': i + 1,
+                'fecha': fechas[i],
                 'monto': monto,
-                'saldo_restante': restante,
+                'saldo_restante': saldo,
                 'monto_acumulado': acumulado,
             }))
-            fecha = fecha + delta
-            secuencia += 1
         self.linea_ids = lineas
 
     def action_ver_recibos(self):
