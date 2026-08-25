@@ -87,6 +87,19 @@ HEADER_ALIASES = {
     'tarjeta':        ['tarjeta', 'no tarjeta', 'numero de tarjeta'],
     'reg_patronal':   ['registro patronal', 'rp'],
     'f_baja':         ['fecha de baja', 'f baja', 'baja'],
+    # --- Ajustes salariales recurrentes (hr.salary.attachment) — opcionales ---
+    'vales_despensa': ['vales de despensa', 'vales despensa', 'vales', 'despensa'],
+    'fondo_ahorro':   ['fondo de ahorro', 'fondo ahorro'],
+    'ajuste_salarial': ['ajuste salarial', 'ajustes salariales', 'ajuste'],
+    'ajuste_concepto': ['ajuste salarial concepto', 'concepto ajuste',
+                        'ajuste concepto', 'descripcion ajuste'],
+}
+
+# Ajustes recurrentes: columna del machote → (xmlid del tipo de entrada, etiqueta)
+SALARY_ADJUSTMENTS = {
+    'vales_despensa':  ('mx_jandea_employee_import.input_type_vales_despensa', 'Vales de Despensa'),
+    'fondo_ahorro':    ('mx_jandea_employee_import.input_type_fondo_ahorro', 'Fondo de Ahorro'),
+    'ajuste_salarial': ('mx_jandea_employee_import.input_type_ajuste_salarial', 'Ajuste Salarial'),
 }
 
 # Columnas mínimas obligatorias en el archivo
@@ -529,9 +542,20 @@ class EmployeeImportWizard(models.TransientModel):
                     _logger.error('IMPORT bank FAIL fila %d\n%s', row_idx, traceback.format_exc())
                     bank_msg = _(' (cuenta bancaria no cargada)')
 
+                # Ajustes salariales recurrentes (vales, fondo de ahorro, ajuste)
+                adj_msg = ''
+                try:
+                    aplicados = self._apply_salary_attachments(emp, row, colmap)
+                    if aplicados:
+                        adj_msg = _(' + ajustes: %s') % ', '.join(aplicados)
+                except Exception:
+                    import traceback
+                    _logger.error('IMPORT ajustes FAIL fila %d\n%s', row_idx, traceback.format_exc())
+                    adj_msg = _(' (ajustes salariales no cargados)')
+
                 results.append({
                     'row': row_idx, 'name': emp.name, 'rfc': rfc, 'status': action,
-                    'message': _('OK') + bank_msg, 'employee_id': emp.id,
+                    'message': _('OK') + bank_msg + adj_msg, 'employee_id': emp.id,
                     'rfc_format_ok': rfc_format_ok, 'checkid_selected': True,
                 })
 
@@ -760,6 +784,82 @@ class EmployeeImportWizard(models.TransientModel):
         elif 'bank_account_ids' in emp._fields:
             emp.sudo().write({'bank_account_ids': [(4, partner_bank.id)]})
         return partner_bank
+
+    def _recurring_duration_type(self):
+        """Valor de duration_type que representa un ajuste SIN fin (recurrente).
+
+        El nombre del valor varía por versión de Odoo; se detecta leyendo la
+        selección del campo. Si no se encuentra, devuelve None (usa el
+        predeterminado del modelo).
+        """
+        Att = self.env.get('hr.salary.attachment')
+        if Att is None or 'duration_type' not in Att._fields:
+            return None
+        try:
+            valores = [v for v, _lbl in Att._fields['duration_type'].selection]
+        except Exception:
+            return None
+        for v in valores:
+            if any(t in v for t in ('indef', 'no_end', 'unlimited', 'permanent', 'recurr')):
+                return v
+        # fallback: el primero que no sea limitado / de una sola vez
+        for v in valores:
+            if v not in ('limited', 'one_time', 'once'):
+                return v
+        return None
+
+    def _apply_salary_attachments(self, emp, row, colmap):
+        """Crea/actualiza los ajustes salariales recurrentes (hr.salary.attachment)
+        capturados en el machote: Vales de Despensa, Fondo de Ahorro y Ajuste
+        Salarial. Devuelve la lista de etiquetas aplicadas."""
+        Att = self.env.get('hr.salary.attachment')
+        if Att is None:
+            return []
+        date_start = (getattr(emp, 'contract_date_start', False)
+                      or getattr(emp, 'date_start', False)
+                      or fields.Date.context_today(self))
+        concepto = _val(row, colmap, 'ajuste_concepto')
+        recurrente = self._recurring_duration_type()
+        aplicados = []
+        for col, (xmlid, etiqueta) in SALARY_ADJUSTMENTS.items():
+            monto = _float_val(row, colmap, col)
+            if not monto:
+                continue
+            try:
+                input_type = self.env.ref(xmlid)
+            except ValueError:
+                continue
+            descripcion = etiqueta
+            if col == 'ajuste_salarial' and concepto:
+                descripcion = concepto
+            vals = {
+                'employee_ids': [(6, 0, [emp.id])],
+                'company_id': emp.company_id.id,
+                'description': descripcion,
+                'other_input_type_id': input_type.id,
+                'monthly_amount': monto,
+                'date_start': date_start,
+                'state': 'open',
+            }
+            if recurrente:
+                vals['duration_type'] = recurrente
+            # Evitar duplicados al reimportar: reutilizar el ajuste abierto del
+            # mismo empleado y tipo, si existe.
+            dominio = [
+                ('employee_ids', 'in', emp.id),
+                ('other_input_type_id', '=', input_type.id),
+                ('state', 'in', ('open', 'draft')),
+            ]
+            existente = Att.with_company(emp.company_id).sudo().search(dominio, limit=1)
+            if existente and self.update_existing:
+                upd = {'monthly_amount': monto, 'description': descripcion}
+                if recurrente:
+                    upd['duration_type'] = recurrente
+                existente.sudo().write(upd)
+            elif not existente:
+                Att.with_company(emp.company_id).sudo().create(vals)
+            aplicados.append(etiqueta)
+        return aplicados
 
     # ──────────────────────────────────────────────────────────────────────────
     # CheckId (sin cambios funcionales)

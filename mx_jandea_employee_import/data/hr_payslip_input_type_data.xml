@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Tipos de entrada de nómina para cargar ajustes recurrentes por
+        empleado desde el machote de importación.
+
+        available_in_attachments = True  -> se pueden usar como
+        hr.salary.attachment ("Nuevo ajuste salarial"), igual que el
+        Préstamo.
+
+        NOTA: para que estos importes se reflejen en el recibo debe existir
+        una regla salarial que lea inputs['<CODE>'].amount con estos códigos
+        (VALES_DESPENSA / FONDO_AHORRO / AJUSTE_SALARIAL). El cálculo
+        automático de Fondo de Ahorro / Vales por reglas FA/VD
+        (SUELDO_NETO_FAVD…) es independiente de estos ajustes.
+    -->
+    <record id="input_type_vales_despensa" model="hr.payslip.input.type">
+        <field name="name">Vales de Despensa</field>
+        <field name="code">VALES_DESPENSA</field>
+        <field name="available_in_attachments" eval="True"/>
+    </record>
+
+    <record id="input_type_fondo_ahorro" model="hr.payslip.input.type">
+        <field name="name">Fondo de Ahorro</field>
+        <field name="code">FONDO_AHORRO</field>
+        <field name="available_in_attachments" eval="True"/>
+    </record>
+
+    <record id="input_type_ajuste_salarial" model="hr.payslip.input.type">
+        <field name="name">Ajuste Salarial</field>
+        <field name="code">AJUSTE_SALARIAL</field>
+        <field name="available_in_attachments" eval="True"/>
+    </record>
+
+</odoo>

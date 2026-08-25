@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Importación Masiva de Empleados',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'summary': 'Importación masiva de empleados desde plantilla IMSS con validación de RFC',
     'description': """
         Módulo para carga masiva de empleados desde plantilla IMSS (.xls/.xlsx).
@@ -21,10 +21,12 @@
     'category': 'Human Resources',
     'depends': [
         'hr',
+        'hr_payroll',
         'base_setup',
     ],
     'data': [
         'security/ir.model.access.csv',
+        'data/hr_payslip_input_type_data.xml',
         'views/hr_employee_views.xml',
         'views/import_wizard_views.xml',
         'views/menu_views.xml',
