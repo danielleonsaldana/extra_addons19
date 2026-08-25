@@ -726,10 +726,14 @@ class EmployeeImportWizard(models.TransientModel):
         # se aplican con _apply_version_fields tras crear al empleado.
         version_vals = {}
 
-        # Periodicidad → schedule_pay
-        schedule = PERIOD_MAP.get(_val(row, colmap, 'periodicidad').upper())
-        if schedule:
-            version_vals['schedule_pay'] = schedule
+        # Periodicidad → l10n_mx_payment_periodicity (catálogo SAT, campo junto
+        # a wage) y schedule_pay (cálculo de nómina). Se resuelve contra la
+        # selección REAL de cada campo, que puede ser personalizada.
+        periodicidad_txt = _val(row, colmap, 'periodicidad')
+        for fname in ('l10n_mx_payment_periodicity', 'schedule_pay'):
+            val = self._resolve_selection_value(periodicidad_txt, fname)
+            if val:
+                version_vals[fname] = val
 
         # Prima vacacional (%) → campo de la versión (nombre según build)
         prima = _float_val(row, colmap, 'prima_vac')
@@ -788,6 +792,67 @@ class EmployeeImportWizard(models.TransientModel):
     # ──────────────────────────────────────────────────────────────────────────
     # Catálogos: tipo de estructura y banco
     # ──────────────────────────────────────────────────────────────────────────
+    # Sinónimos español → etiqueta/valor probable del campo schedule_pay.
+    # Se resuelve contra la selección REAL del modelo (ver _resolve_selection_value).
+    _SCHEDULE_SYNONYMS = {
+        'diario': ['daily', 'day', 'dia', 'diaria'],
+        'semanal': ['weekly', 'week', 'semana'],
+        'decenal': ['10 days', '10 dias', 'diez dias', 'ten days'],
+        '10 dias': ['10 days', 'ten days'],
+        'catorcenal': ['14 days', 'bi-weekly', 'biweekly', '14 dias', 'catorce dias'],
+        '14 dias': ['14 days', 'bi-weekly'],
+        'quincenal': ['semi-monthly', '15 days', '15 dias', 'bi-weekly', 'quincena'],
+        '15 dias': ['semi-monthly', '15 days'],
+        'bisemanal': ['bi-weekly', 'biweekly', '14 days'],
+        'mensual': ['monthly', 'month', 'mes'],
+        'bimestral': ['bi-monthly', 'bimonthly', 'bimestre'],
+    }
+
+    def _field_selection(self, field_name):
+        """Selección real (value, label) de un campo de selección, buscándolo
+        en la versión o el empleado. Usa fields_get para respaldar listas
+        personalizadas o del catálogo SAT."""
+        for model in ('hr.version', 'hr.employee'):
+            M = self.env.get(model)
+            if M is None or field_name not in M._fields:
+                continue
+            try:
+                info = M.fields_get([field_name])
+                sel = info.get(field_name, {}).get('selection')
+                if sel:
+                    return [(v, l) for v, l in sel]
+            except Exception:
+                continue
+        return []
+
+    def _resolve_selection_value(self, text, field_name):
+        """Convierte la periodicidad del machote al valor técnico real del
+        campo indicado, comparando contra sus valores y etiquetas (con
+        sinónimos español/inglés)."""
+        text_norm = _norm(text)
+        if not text_norm:
+            return False
+        sel = self._field_selection(field_name)
+        if not sel:
+            return False
+        norm_sel = [(v, _norm(v), _norm(l)) for v, l in sel]
+
+        # 1) coincidencia directa con valor o etiqueta
+        for v, nv, nl in norm_sel:
+            if text_norm in (nv, nl):
+                return v
+        # 2) sinónimos español → candidatos
+        for cand in self._SCHEDULE_SYNONYMS.get(text_norm, []):
+            nc = _norm(cand)
+            for v, nv, nl in norm_sel:
+                if nc in (nv, nl):
+                    return v
+        # 3) coincidencia por contención (p.ej. "14 días" ~ "14 days")
+        for v, nv, nl in norm_sel:
+            if text_norm and (text_norm in nl or nl in text_norm):
+                return v
+        return False
+
     def _resolve_department(self, text):
         """Busca el departamento por nombre; lo crea si no existe."""
         text = (text or '').strip()
