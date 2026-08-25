@@ -87,6 +87,10 @@ HEADER_ALIASES = {
     'tarjeta':        ['tarjeta', 'no tarjeta', 'numero de tarjeta'],
     'reg_patronal':   ['registro patronal', 'rp'],
     'f_baja':         ['fecha de baja', 'f baja', 'baja'],
+    'no_empleado':    ['numero de empleado', 'no empleado', 'num empleado',
+                       'no de empleado', 'clave empleado', 'referencia', 'no emp'],
+    'prima_vac':      ['prima vacacional', 'prima vac', 'prima'],
+    'tipo_contrato':  ['tipo de contrato', 'tipo contrato', 'contrato tipo'],
     # --- Ajustes salariales recurrentes (hr.salary.attachment) — opcionales ---
     'vales_despensa': ['vales de despensa', 'vales despensa', 'vales', 'despensa'],
     'fondo_ahorro':   ['fondo de ahorro', 'fondo ahorro'],
@@ -499,7 +503,7 @@ class EmployeeImportWizard(models.TransientModel):
                 continue
 
             try:
-                vals_create, vals_write, bank_data = self._build_employee_vals(
+                vals_create, vals_write, version_vals, bank_data = self._build_employee_vals(
                     row, colmap, rfc, rfc_format_ok
                 )
             except Exception as e:
@@ -531,6 +535,15 @@ class EmployeeImportWizard(models.TransientModel):
                                 fname, fval, traceback.format_exc()
                             )
                     action = 'created'; created += 1
+
+                # Campos que viven en la versión/contrato (periodicidad, prima,
+                # tipo de contrato). Se aplican aparte por robustez en Odoo 19.
+                try:
+                    self._apply_version_fields(emp, version_vals)
+                except Exception:
+                    import traceback
+                    _logger.error('IMPORT version FAIL fila %d\n%s',
+                                  row_idx, traceback.format_exc())
 
                 # Cuenta bancaria (BUG corregido)
                 bank_msg = ''
@@ -629,11 +642,27 @@ class EmployeeImportWizard(models.TransientModel):
         if rfc:
             vals_write['mx_rfc'] = rfc
             vals_write['rfc_validated_format'] = rfc_format_ok
+            # También a los campos nativos de la localización (los que ve el
+            # usuario en la pestaña Personal y usa el CFDI), si existen.
+            for f in ('l10n_mx_rfc', 'l10n_mx_edi_rfc'):
+                if f in emp_fields:
+                    vals_write[f] = rfc
         if curp:
             vals_write['mx_curp'] = curp
             vals_write['identification_id'] = curp
-            if 'l10n_mx_edi_curp' in emp_fields:
-                vals_write['l10n_mx_edi_curp'] = curp
+            for f in ('l10n_mx_curp', 'l10n_mx_edi_curp'):
+                if f in emp_fields:
+                    vals_write[f] = curp
+
+        # Número de empleado → código de barras (gafete) y referencia
+        no_emp = _val(row, colmap, 'no_empleado')
+        if no_emp:
+            if 'barcode' in emp_fields:
+                vals_write['barcode'] = no_emp
+            for f in ('registration_number', 'ref', 'employee_number'):
+                if f in emp_fields:
+                    vals_write[f] = no_emp
+                    break
 
         nss_raw = _val(row, colmap, 'nss')
         if nss_raw:
@@ -691,10 +720,27 @@ class EmployeeImportWizard(models.TransientModel):
             if 'date_version' in emp_fields:
                 vals_write['date_version'] = f_ingreso
 
+        # ── CONTRATO / VERSIÓN ────────────────────────────────────────────
+        # Estos campos viven en la versión/contrato (hr.version) en Odoo 19;
+        # se aplican con _apply_version_fields tras crear al empleado.
+        version_vals = {}
+
         # Periodicidad → schedule_pay
         schedule = PERIOD_MAP.get(_val(row, colmap, 'periodicidad').upper())
-        if schedule and 'schedule_pay' in emp_fields:
-            vals_write['schedule_pay'] = schedule
+        if schedule:
+            version_vals['schedule_pay'] = schedule
+
+        # Prima vacacional (%) → campo de la versión (nombre según build)
+        prima = _float_val(row, colmap, 'prima_vac')
+        if prima:
+            version_vals['_prima_vacacional'] = prima  # se resuelve el campo real
+
+        # Tipo de contrato → contract_type_id (se resuelve por nombre)
+        tipo_contrato = _val(row, colmap, 'tipo_contrato')
+        if tipo_contrato:
+            ct = self._resolve_contract_type(tipo_contrato)
+            if ct:
+                version_vals['contract_type_id'] = ct
 
         # Monto por periodo → wage (importe del periodo)
         monto = _float_val(row, colmap, 'monto_periodo')
@@ -726,11 +772,80 @@ class EmployeeImportWizard(models.TransientModel):
         }
         bank_data['acc'] = bank_data['clabe'] or bank_data['cuenta']
 
-        return vals_create, vals_write, bank_data
+        return vals_create, vals_write, version_vals, bank_data
 
     # ──────────────────────────────────────────────────────────────────────────
     # Catálogos: tipo de estructura y banco
     # ──────────────────────────────────────────────────────────────────────────
+    def _resolve_contract_type(self, text):
+        """Resuelve el tipo de contrato (contract_type_id) por nombre."""
+        text = (text or '').strip()
+        if not text:
+            return False
+        CT = self.env.get('hr.contract.type')
+        if CT is None:
+            return False
+        ct = CT.sudo().search([('name', 'ilike', text)], limit=1)
+        return ct.id if ct else False
+
+    # Nombres candidatos del campo de prima vacacional en la versión/contrato,
+    # según localización/build. Se escribe en el primero que exista.
+    _PRIMA_FIELDS = (
+        'l10n_mx_vacation_bonus', 'vacation_bonus', 'prima_vacacional',
+        'l10n_mx_edi_vacation_bonus', 'holidays_premium',
+    )
+
+    def _apply_version_fields(self, emp, version_vals):
+        """Escribe los campos de contrato/versión. En Odoo 19 viven en
+        hr.version; algunos se exponen en hr.employee (related) y otros no, por
+        lo que se intenta primero en el empleado y, si no, en su versión actual.
+        Es defensivo: si un campo no existe en el build, se omite (log)."""
+        if not version_vals:
+            return
+        vals = dict(version_vals)
+
+        # Resolver el nombre real del campo de prima vacacional
+        prima = vals.pop('_prima_vacacional', None)
+        target = self._env_version_record(emp)
+        campos_emp = emp._fields
+        campos_ver = target._fields if target else {}
+        if prima is not None:
+            for f in self._PRIMA_FIELDS:
+                if f in campos_emp or f in campos_ver:
+                    vals[f] = prima
+                    break
+
+        # Repartir: lo que exista en el empleado se escribe ahí; el resto en la
+        # versión (si existe el campo).
+        emp_part = {k: v for k, v in vals.items() if k in campos_emp}
+        ver_part = {k: v for k, v in vals.items()
+                    if k not in campos_emp and k in campos_ver}
+
+        if emp_part:
+            try:
+                emp.sudo().write(emp_part)
+            except Exception:
+                import traceback
+                _logger.error('IMPORT version(emp) FAIL %r\n%s',
+                              emp_part, traceback.format_exc())
+        if ver_part and target:
+            try:
+                target.sudo().write(ver_part)
+            except Exception:
+                import traceback
+                _logger.error('IMPORT version(ver) FAIL %r\n%s',
+                              ver_part, traceback.format_exc())
+
+    @staticmethod
+    def _env_version_record(emp):
+        """Devuelve la versión/contrato actual del empleado, probando los
+        nombres de relación que varían por versión de Odoo."""
+        for attr in ('version_id', 'current_version_id', 'contract_id'):
+            rec = getattr(emp, attr, False)
+            if rec:
+                return rec
+        return False
+
     def _resolve_structure_type(self, text):
         if not text:
             return False
