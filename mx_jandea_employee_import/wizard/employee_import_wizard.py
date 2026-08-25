@@ -91,6 +91,7 @@ HEADER_ALIASES = {
                        'no de empleado', 'clave empleado', 'referencia', 'no emp'],
     'prima_vac':      ['prima vacacional', 'prima vac', 'prima'],
     'tipo_contrato':  ['tipo de contrato', 'tipo contrato', 'contrato tipo'],
+    'departamento':   ['departamento', 'depto', 'area', 'área', 'dpto'],
     # --- Ajustes salariales recurrentes (hr.salary.attachment) — opcionales ---
     'vales_despensa': ['vales de despensa', 'vales despensa', 'vales', 'despensa'],
     'fondo_ahorro':   ['fondo de ahorro', 'fondo ahorro'],
@@ -754,10 +755,20 @@ class EmployeeImportWizard(models.TransientModel):
             if stype and 'structure_type_id' in emp_fields:
                 vals_write['structure_type_id'] = stype
 
-        # Puesto
+        # Puesto (texto libre) + Puesto de trabajo (job_id) + Departamento
         puesto = _val(row, colmap, 'puesto')
         if puesto and 'job_title' in emp_fields:
             vals_write['job_title'] = puesto
+
+        departamento = _val(row, colmap, 'departamento')
+        dept_id = self._resolve_department(departamento) if departamento else False
+        if dept_id and 'department_id' in emp_fields:
+            vals_write['department_id'] = dept_id
+
+        if puesto and 'job_id' in emp_fields:
+            job_id = self._resolve_job(puesto, dept_id)
+            if job_id:
+                vals_write['job_id'] = job_id
 
         # Fecha de baja
         f_baja = _date_val(row, colmap, 'f_baja')
@@ -777,6 +788,41 @@ class EmployeeImportWizard(models.TransientModel):
     # ──────────────────────────────────────────────────────────────────────────
     # Catálogos: tipo de estructura y banco
     # ──────────────────────────────────────────────────────────────────────────
+    def _resolve_department(self, text):
+        """Busca el departamento por nombre; lo crea si no existe."""
+        text = (text or '').strip()
+        if not text:
+            return False
+        Dept = self.env['hr.department']
+        dept = Dept.sudo().search([
+            ('name', 'ilike', text), ('company_id', '=', self.company_id.id),
+        ], limit=1) or Dept.sudo().search([('name', 'ilike', text)], limit=1)
+        if not dept:
+            dept = Dept.sudo().with_company(self.company_id).create({
+                'name': text, 'company_id': self.company_id.id,
+            })
+        return dept.id
+
+    def _resolve_job(self, text, dept_id=False):
+        """Busca el puesto de trabajo (hr.job) por nombre; lo crea si no existe."""
+        text = (text or '').strip()
+        if not text:
+            return False
+        Job = self.env['hr.job']
+        dom = [('name', 'ilike', text), ('company_id', '=', self.company_id.id)]
+        if dept_id:
+            dom = dom + [('department_id', '=', dept_id)]
+        job = Job.sudo().search(dom, limit=1) \
+            or Job.sudo().search([('name', 'ilike', text),
+                                  ('company_id', '=', self.company_id.id)], limit=1) \
+            or Job.sudo().search([('name', 'ilike', text)], limit=1)
+        if not job:
+            vals = {'name': text, 'company_id': self.company_id.id}
+            if dept_id:
+                vals['department_id'] = dept_id
+            job = Job.sudo().with_company(self.company_id).create(vals)
+        return job.id
+
     def _resolve_contract_type(self, text):
         """Resuelve el tipo de contrato (contract_type_id) por nombre."""
         text = (text or '').strip()
@@ -797,30 +843,37 @@ class EmployeeImportWizard(models.TransientModel):
 
     def _apply_version_fields(self, emp, version_vals):
         """Escribe los campos de contrato/versión. En Odoo 19 viven en
-        hr.version; algunos se exponen en hr.employee (related) y otros no, por
-        lo que se intenta primero en el empleado y, si no, en su versión actual.
-        Es defensivo: si un campo no existe en el build, se omite (log)."""
+        hr.version (emp.version_id); algunos se exponen como related en
+        hr.employee. Se prefiere escribir en la VERSIÓN y, si el campo no está
+        ahí, en el empleado. Defensivo: si no existe, se omite (log)."""
         if not version_vals:
             return
         vals = dict(version_vals)
 
+        ver = self._env_version_record(emp)
+        emp_fields = emp._fields
+        ver_fields = ver._fields if ver else {}
+
         # Resolver el nombre real del campo de prima vacacional
         prima = vals.pop('_prima_vacacional', None)
-        target = self._env_version_record(emp)
-        campos_emp = emp._fields
-        campos_ver = target._fields if target else {}
         if prima is not None:
             for f in self._PRIMA_FIELDS:
-                if f in campos_emp or f in campos_ver:
+                if f in ver_fields or f in emp_fields:
                     vals[f] = prima
                     break
 
-        # Repartir: lo que exista en el empleado se escribe ahí; el resto en la
-        # versión (si existe el campo).
-        emp_part = {k: v for k, v in vals.items() if k in campos_emp}
-        ver_part = {k: v for k, v in vals.items()
-                    if k not in campos_emp and k in campos_ver}
+        # Preferir la versión; el empleado como respaldo.
+        ver_part = {k: v for k, v in vals.items() if ver and k in ver_fields}
+        emp_part = {k: v for k, v in vals.items()
+                    if k not in ver_part and k in emp_fields}
 
+        if ver_part and ver:
+            try:
+                ver.sudo().write(ver_part)
+            except Exception:
+                import traceback
+                _logger.error('IMPORT version(ver) FAIL %r\n%s',
+                              ver_part, traceback.format_exc())
         if emp_part:
             try:
                 emp.sudo().write(emp_part)
@@ -828,13 +881,6 @@ class EmployeeImportWizard(models.TransientModel):
                 import traceback
                 _logger.error('IMPORT version(emp) FAIL %r\n%s',
                               emp_part, traceback.format_exc())
-        if ver_part and target:
-            try:
-                target.sudo().write(ver_part)
-            except Exception:
-                import traceback
-                _logger.error('IMPORT version(ver) FAIL %r\n%s',
-                              ver_part, traceback.format_exc())
 
     @staticmethod
     def _env_version_record(emp):
