@@ -902,8 +902,8 @@ class EmployeeImportWizard(models.TransientModel):
     # Nombres candidatos del campo de prima vacacional en la versión/contrato,
     # según localización/build. Se escribe en el primero que exista.
     _PRIMA_FIELDS = (
-        'l10n_mx_vacation_bonus', 'vacation_bonus', 'prima_vacacional',
-        'l10n_mx_edi_vacation_bonus', 'holidays_premium',
+        'l10n_mx_holiday_bonus_rate', 'l10n_mx_vacation_bonus', 'vacation_bonus',
+        'prima_vacacional', 'l10n_mx_edi_vacation_bonus', 'holidays_premium',
     )
 
     def _apply_version_fields(self, emp, version_vals):

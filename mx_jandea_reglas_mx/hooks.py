@@ -1008,4 +1008,10 @@ def post_init_hook(env):
     # Reglas de Fondo de Ahorro / Vales de Despensa en la nómina NORMAL.
     _build_favd_rules(env)
 
+    # Listado de Nómina: exenciones por concepto, base gravable e ISR
+    # mensualizado (nómina NORMAL). Vive en hooks_nomina.py para no mezclarse
+    # con el finiquito.
+    from odoo.addons.mx_jandea_reglas_mx.hooks_nomina import _build_nomina_rules
+    _build_nomina_rules(env)
+
     _logger.info('%s: %s regla(s) de finiquito creadas.', MODULE, created)

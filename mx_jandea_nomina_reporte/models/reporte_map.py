@@ -17,6 +17,8 @@ COLUMNAS_REPORTE = [
     ('otras_percepciones', 'Otras Percepciones', 'P'),
     ('aguinaldo', 'Aguinaldo', 'P'),
     ('ptu', 'Reparto de Utilidades', 'P'),
+    # Columna W del Excel: informativa, no suma a percepciones ni a deducciones.
+    ('base_gravable', 'Total Base Gravable', 'P'),
     ('isr', 'ISR', 'D'),
     ('cuotas_imss', 'Cuotas IMSS', 'D'),
     ('anticipo_nomina', 'Anticipo de Nomina', 'D'),
@@ -28,6 +30,11 @@ COLUMNAS_REPORTE = [
     ('fondo_ahorro_pat', 'Fondo de Ahorro Patron', 'D'),
     ('otras_deducciones', 'Otras Deducciones', 'D'),
     ('descuento_vales', 'Descuento Vales Despensa', 'D'),
+    ('fonacot', 'FONACOT', 'D'),
+    ('infonavit', 'INFONAVIT', 'D'),
+    ('infonavit_pendiente', 'INFONAVIT Pendiente', 'D'),
+    ('devolucion_fonacot', 'Devolución FONACOT', 'P'),
+    ('devolucion_infonavit', 'Devolución INFONAVIT', 'P'),
 ]
 
 COLUMNA_SELECTION = [(k, v) for (k, v, _t) in COLUMNAS_REPORTE]

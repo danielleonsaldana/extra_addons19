@@ -1,44 +1,13 @@
 <?xml version="1.0"?>
 <odoo>
     <!-- =======================================================================
-         FIX: Regla ISR nativa — crash cuando GROSS = 0 (empleado con todas faltas)
-         Se sobreescribe solo la fórmula Python; todo lo demás permanece igual.
+         ISR de la nómina normal
+         Desde v19.0.1.25.0 la fórmula de la regla ISR nativa la escribe
+         hooks_nomina.py (_patch_isr): base gravable -> mensualización ->
+         tabla mensual -> parte proporcional a la periodicidad. Ahí también
+         sobrevive el fix del crash con GROSS = 0. Se quitó de este XML para
+         que exista UNA sola fuente de la verdad.
          ======================================================================= -->
-    <record id="l10n_mx_hr_payroll.l10n_mx_regular_pay_isr" model="hr.salary.rule">
-        <field name="amount_python_compute">
-def find_rates(x, rates):
-    for low, high, fix, rate in rates:
-        if low &lt;= x &lt;= high:
-            return low, high, fix, rate
-    # Guard: si GROSS no cae en ningún rango (ej. GROSS=0) usa el primer tramo
-    return rates[0] if rates else (0.0, 0.0, 0.0, 0.0)
-
-gross = categories['GROSS']
-result = 0
-
-# Periodicidad segura: 'version' puede no existir (recibo sin contrato) y el
-# parametro puede no tener la clave. Con TODAS las faltas GROSS=0: el recibo
-# se calcula igual (ISR 0) sin reventar ninguna formula.
-_sched = getattr(version, 'schedule_pay', False) \
-    or getattr(payslip, 'schedule_pay', False) or 'monthly'
-
-if gross and gross &gt; 0:
-    _tables = payslip._rule_parameter('l10n_mx_isr_tables') or {}
-    isr_table = _tables.get(_sched) or _tables.get('monthly') or []
-    if isr_table:
-        low, high, fix, rate = find_rates(gross, isr_table)
-        result = -((gross - low) * rate + fix)
-
-_sched_tbl = payslip._rule_parameter('l10n_mx_schedule_table') or {}
-period_factor = _sched_tbl.get(_sched, 30) or 30
-if period_factor &gt;= 15:
-    period_factor = (period_factor / 30) * (365 / 12)
-min_wage = (payslip._rule_parameter('l10n_mx_daily_min_wage') or 0.0) * period_factor
-
-if gross &lt;= min_wage:
-    result_qty = 0.0
-        </field>
-    </record>
 
     <!-- =======================================================================
          PERCEPCIONES COMPLEMENTARIAS

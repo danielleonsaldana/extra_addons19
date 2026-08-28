@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- =======================================================================
+         PARÁMETROS DE LA NÓMINA NORMAL (Listado de Nómina)
+
+         Nómina → Configuración → Parámetros de Reglas.
+         Ninguna cifra vive en el código: todo se ajusta aquí.
+         ======================================================================= -->
+    <data noupdate="1">
+
+        <!-- ¿GROSS trae dentro las percepciones EXENTAS?
+             1 = sí, hay que restarlas para obtener la base gravable (default).
+             0 = no, GROSS ya viene neto de exentos.
+             SE VALIDA CON UN RECIBO DE PRUEBA y se deja fijo. -->
+        <record id="rule_param_gross_exento" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Base gravable · GROSS incluye las percepciones exentas (1/0)</field>
+            <field name="code">mx_jandea_gross_incluye_exento</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_gross_exento_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_gross_exento"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">1.0</field>
+        </record>
+
+        <!-- Tiempo extra / festivo / descanso: bolsa común de exención -->
+        <record id="rule_param_te_uma_semana" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Tiempo extra · UMA exentas por semana (bolsa común HE + festivo + descanso)</field>
+            <field name="code">mx_jandea_te_uma_semana</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_te_uma_semana_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_te_uma_semana"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">5.0</field>
+        </record>
+
+        <!-- Semanas para la bolsa: 0 = las semanas reales del periodo,
+             1 = una sola bolsa de 5 UMA por periodo (criterio del Excel). -->
+        <record id="rule_param_te_semanas" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Tiempo extra · Semanas para la bolsa (0 = semanas del período)</field>
+            <field name="code">mx_jandea_te_semanas</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_te_semanas_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_te_semanas"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
+        <!-- 1.0 = exento el 100% hasta la bolsa (criterio del Excel).
+             0.5 = exento el 50%, art. 93 fracc. I LISR para quien no gana el mínimo. -->
+        <record id="rule_param_te_pct_exento" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Tiempo extra · Porcentaje exento (1.0 = 100%, 0.5 = art. 93 LISR)</field>
+            <field name="code">mx_jandea_te_pct_exento</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_te_pct_exento_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_te_pct_exento"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">1.0</field>
+        </record>
+
+        <!-- Festivo / descanso laborado: 3.0 = triple (LFT art. 73). -->
+        <record id="rule_param_festivo_mult" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Festivo y descanso laborado · Multiplicador del salario diario</field>
+            <field name="code">mx_jandea_festivo_mult</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_festivo_mult_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_festivo_mult"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">3.0</field>
+        </record>
+
+        <!-- Prima vacacional -->
+        <record id="rule_param_pv_pct" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Prima Vacacional · Porcentaje (25% LFT art. 80)</field>
+            <field name="code">mx_jandea_pv_pct</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_pv_pct_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_pv_pct"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.25</field>
+        </record>
+
+        <record id="rule_param_pv_uma" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Prima Vacacional · UMA exentas (15)</field>
+            <field name="code">mx_jandea_pv_uma</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_pv_uma_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_pv_uma"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">15.0</field>
+        </record>
+
+        <!-- Prima dominical -->
+        <record id="rule_param_pd_pct" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Prima Dominical · Porcentaje del salario diario (25%)</field>
+            <field name="code">mx_jandea_pd_pct</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_pd_pct_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_pd_pct"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.25</field>
+        </record>
+
+        <!-- 0 = exención de 1 UMA por domingo (art. 93 fracc. XIV LISR).
+             1 = exención de 1 salario mínimo por domingo (criterio del Excel). -->
+        <record id="rule_param_pd_base_smg" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Prima Dominical · Base de exención (0 = UMA, 1 = salario mínimo)</field>
+            <field name="code">mx_jandea_pd_base_smg</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_pd_base_smg_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_pd_base_smg"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
+        <!-- Vales de despensa: exentos el 40% de la UMA al mes -->
+        <record id="rule_param_vd_uma_pct" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Porcentaje de UMA exento al mes (40%)</field>
+            <field name="code">mx_jandea_vd_uma_pct</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_uma_pct_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_uma_pct"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.40</field>
+        </record>
+
+        <!-- 0 = vales y fondo de ahorro solo si se captura el importe en el
+             recibo. 1 = se otorgan automáticamente a todo contrato, calculados
+             como el Excel (10% y 13% del sueldo, topados a la exención). -->
+        <record id="rule_param_vd_auto" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Otorgar automáticamente (1/0)</field>
+            <field name="code">mx_jandea_vd_auto</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_auto_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_auto"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
+        <record id="rule_param_fa_auto" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Fondo de Ahorro · Otorgar automáticamente (1/0)</field>
+            <field name="code">mx_jandea_fa_auto</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_fa_auto_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_fa_auto"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
+        <!-- Vales: se pagan en especie y se compensan (no suman al neto). -->
+        <record id="rule_param_vd_compensa" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Compensar contra el neto (1/0)</field>
+            <field name="code">mx_jandea_vd_compensa</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_compensa_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_compensa"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">1.0</field>
+        </record>
+
+        <record id="rule_param_vd_descuento" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales de Despensa · Descuento fijo por entrega ($1.00)</field>
+            <field name="code">mx_jandea_vd_descuento</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_descuento_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_descuento"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">1.0</field>
+        </record>
+
+        <!-- ISR a quien percibe el salario mínimo: 0 = sin retención (LISR),
+             1 = retener bajo autorización del cliente (nota H4 del Excel). -->
+        <record id="rule_param_isr_al_minimo" model="hr.rule.parameter">
+            <field name="name">MX Jandea · ISR · Retener a quien gana el salario mínimo (1/0)</field>
+            <field name="code">mx_jandea_isr_al_minimo</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_isr_al_minimo_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_isr_al_minimo"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
+    </data>
+</odoo>

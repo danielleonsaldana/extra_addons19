@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.24.0',
-    'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + fix ISR GROSS=0 + Finiquito/Liquidación + Fondo de Ahorro y Vales de Despensa',
+    'version': '19.0.1.25.0',
+    'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + Finiquito/Liquidación + Listado de Nómina (exenciones, base gravable e ISR mensualizado)',
     'description': """
 Reglas complementarias para la nómina mexicana:
 
@@ -26,6 +26,17 @@ ISN (Impuesto Sobre Nóminas): es un impuesto ESTATAL a cargo del PATRÓN, no un
 deducción al trabajador. Por eso se calcula en la categoría PATRONAL, fuera del
 neto. Si la entrada FNQT_ISN_TASA no se captura o va en 0, el ISN no aplica.
 
+* NÓMINA NORMAL (v1.25.0) — replica el Excel "Listado de Nómina":
+  cada percepción con exención se parte en GRAVADA y EXENTA (prima vacacional
+  15 UMA, tiempo extra/festivo/descanso con bolsa COMÚN de 5 UMA semanales,
+  prima dominical, vales 40% UMA al mes, fondo de ahorro 1.3 UMA), se agrega la
+  regla informativa BASE_GRAVABLE_ISR (columna W) y el ISR pasa a calcularse
+  MENSUALIZADO sobre la base gravable y luego prorrateado a la periodicidad.
+  Los vales se compensan contra el neto y llevan el descuento de $1.00.
+  El subsidio al empleo NO se implementa: se usan las reglas nativas de
+  l10n_mx (SUBSIDY / SUBSIDY_CURRENT_MONTH / SUBSIDY_NEXT_MONTH), así que la
+  columna X del Excel equivale en Odoo a ISR + SUBSIDY.
+
 UMA y salario mínimo se leen de parámetros de regla versionados por año
 (mx_jandea_uma / mx_jandea_smg), así que no requieren cambios de código.
     """,
@@ -37,8 +48,10 @@ UMA y salario mínimo se leen de parámetros de regla versionados por año
     'data': [
         'security/ir.model.access.csv',
         'data/hr_rule_parameter_data.xml',
+        'data/hr_rule_parameter_nomina_data.xml',
         'data/hr_payslip_input_type_data.xml',
         'data/hr_payslip_input_type_finiquito_data.xml',
+        'data/hr_payslip_input_type_nomina_data.xml',
         'data/hr_salary_rule_data.xml',
         'wizards/fnqt_pct_wizard_views.xml',
         'views/hr_payslip_views.xml',

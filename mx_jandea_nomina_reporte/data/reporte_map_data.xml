@@ -98,6 +98,31 @@
             <field name="columna">otras_deducciones</field>
             <field name="notas">Códigos varios separados por coma</field>
         </record>
+        <record id="map_base_gravable" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">base_gravable</field>
+            <field name="codes">BASE_GRAVABLE_ISR</field>
+            <field name="notas">Columna W: base para el cálculo de ISR (regla informativa)</field>
+        </record>
+        <record id="map_fonacot" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">fonacot</field>
+            <field name="codes">FONACOT</field>
+        </record>
+        <record id="map_infonavit" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">infonavit</field>
+            <field name="codes">INFONAVIT</field>
+        </record>
+        <record id="map_infonavit_pendiente" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">infonavit_pendiente</field>
+            <field name="notas">Asigna el código de INFONAVIT Pendiente</field>
+        </record>
+        <record id="map_devolucion_fonacot" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">devolucion_fonacot</field>
+            <field name="notas">Asigna el código de Devolución FONACOT</field>
+        </record>
+        <record id="map_devolucion_infonavit" model="mx.jandea.nomina.reporte.map">
+            <field name="columna">devolucion_infonavit</field>
+            <field name="notas">Asigna el código de Devolución INFONAVIT</field>
+        </record>
         <record id="map_descuento_vales" model="mx.jandea.nomina.reporte.map">
             <field name="columna">descuento_vales</field>
             <field name="notas">Descuento por Vales de Despensa</field>

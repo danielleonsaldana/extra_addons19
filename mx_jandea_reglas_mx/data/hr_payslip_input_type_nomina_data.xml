@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<odoo>
+    <!-- =======================================================================
+         ENTRADAS DE LA NÓMINA NORMAL (Listado de Nómina)
+
+         Todas son OPCIONALES: si no se capturan, las reglas usan el sueldo del
+         contrato y los días de la periodicidad. Sirven para forzar un importe
+         o unos días distintos en un recibo concreto.
+         ======================================================================= -->
+
+    <record id="input_salario_diario" model="hr.payslip.input.type">
+        <field name="name">Salario Diario (forzar)</field>
+        <field name="code">SALARIO_DIARIO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_dias_laborados" model="hr.payslip.input.type">
+        <field name="name">Días Laborados</field>
+        <field name="code">DIAS_LABORADOS</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_dias_descanso" model="hr.payslip.input.type">
+        <field name="name">Días Descanso Laborado</field>
+        <field name="code">DIAS_DESCANSO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_prima_vac_dias" model="hr.payslip.input.type">
+        <field name="name">Días de Vacaciones (para Prima Vacacional)</field>
+        <field name="code">PRIMA_VAC_DIAS</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_prima_vacacional" model="hr.payslip.input.type">
+        <field name="name">Prima Vacacional (importe)</field>
+        <field name="code">PRIMA_VACACIONAL</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_vales_despensa" model="hr.payslip.input.type">
+        <field name="name">Vales de Despensa (importe)</field>
+        <field name="code">VALES_DESPENSA</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_fondo_ahorro" model="hr.payslip.input.type">
+        <field name="name">Fondo de Ahorro (importe)</field>
+        <field name="code">FONDO_AHORRO</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
+    <record id="input_otras_percepciones" model="hr.payslip.input.type">
+        <field name="name">Otras Percepciones</field>
+        <field name="code">OTRAS_PERCEPCIONES</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+</odoo>

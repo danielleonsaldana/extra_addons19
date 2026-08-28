@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Importación Masiva de Empleados',
-    'version': '19.0.1.3.3',
+    'version': '19.0.1.3.4',
     'summary': 'Importación masiva de empleados desde plantilla IMSS con validación de RFC',
     'description': """
         Módulo para carga masiva de empleados desde plantilla IMSS (.xls/.xlsx).
