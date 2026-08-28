@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.25.0',
+    'version': '19.0.1.25.1',
     'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + Finiquito/Liquidación + Listado de Nómina (exenciones, base gravable e ISR mensualizado)',
     'description': """
 Reglas complementarias para la nómina mexicana:

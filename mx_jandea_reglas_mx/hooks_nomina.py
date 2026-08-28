@@ -305,6 +305,39 @@ if _isr < 0:
 '''
 
 
+# Bloque de COMPATIBILIDAD con las reglas nativas que van despues del ISR.
+#
+# Odoo evalua todas las reglas de un recibo sobre el MISMO diccionario
+# (safe_eval con nocopy=True), asi que las variables que deja una regla las
+# leen las siguientes. La formula nativa de ISR publicaba estos nombres y hay
+# reglas de l10n_mx que dependen de ellos; por ejemplo ISR_MINIMUM_WAGE tiene
+# como condicion "result = gross <= min_wage". Si no se publican, el recibo
+# truena con NameError. Se calculan igual que en la formula nativa.
+NOM_COMPAT_BLOCK = '''
+def find_rates(x, rates):
+    for low, high, fix, rate in rates:
+        if low <= x <= high:
+            return low, high, fix, rate
+    # Si no cae en ningun tramo (GROSS = 0, empleado con todas faltas) se
+    # devuelve el primero en vez de reventar.
+    return rates[0] if rates else (0.0, 0.0, 0.0, 0.0)
+
+gross = categories["GROSS"]
+
+_tables = payslip._rule_parameter("l10n_mx_isr_tables") or {}
+isr_table = _tables.get(_sched) or _tables.get("monthly") or []
+low, high, fix, rate = find_rates(gross, isr_table) if isr_table else (
+    0.0, 0.0, 0.0, 0.0)
+
+_sched_tbl = payslip._rule_parameter("l10n_mx_schedule_table") or {}
+period_factor = _sched_tbl.get(_sched, 30) or 30
+if period_factor >= 15:
+    period_factor = (period_factor / 30) * (365 / 12)
+min_wage = (payslip._rule_parameter("l10n_mx_daily_min_wage") or 0.0) \\
+    * period_factor
+'''
+
+
 def _nomina_rules_spec():
     """Reglas de la nómina normal.
 
@@ -359,16 +392,22 @@ def _nomina_rules_spec():
          p + NOM_BASE_BLOCK + '\nresult = base_gravable\n'),
         ('rule_nom_isr_mensualizado', 'Info · ISR Mensualizado',
          'INFO_ISR_MENSUAL', 'INFO', 206,
-         p + NOM_BASE_BLOCK + NOM_ISR_BLOCK + '\nresult = _isr\n'),
+         p + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK
+         + '\nresult = _isr\n'),
     ]
 
 
 def _isr_rule_code():
-    """Fórmula que sustituye a la regla ISR nativa de 'Regular Pay'."""
-    return (NOM_PREAMBLE + NOM_BASE_BLOCK + NOM_ISR_BLOCK + '''
+    """Fórmula que sustituye a la regla ISR nativa de 'Regular Pay'.
+
+    El bloque de compatibilidad va SIEMPRE al final para que las variables que
+    esperan las reglas nativas posteriores queden publicadas pase lo que pase.
+    """
+    return (NOM_PREAMBLE + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK + '''
 result = -_isr
 if base_gravable <= 0:
     result = 0.0
+if gross <= min_wage:
     result_qty = 0.0
 ''')
 
