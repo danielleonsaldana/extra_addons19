@@ -110,17 +110,31 @@ try:
 except Exception:
     _sched = "monthly"
 
-_DIAS_SCHED = {"daily": 1.0, "weekly": 7.0, "bi-weekly": 14.0,
-               "semi-monthly": 15.0, "monthly": 30.0}
-dias_nomina = _DIAS_SCHED.get(_sched) or float(_dias_calendario or 30)
+# Los dias de cada periodicidad los define la PROPIA localizacion mexicana en
+# el parametro l10n_mx_schedule_table. OJO: en l10n_mx "bi-weekly" es
+# QUINCENAL (15 dias) y la catorcenal es "14_days". Se lee de ahi para no
+# desalinearse si Odoo agrega o renombra periodicidades; el diccionario de
+# abajo solo es respaldo por si el parametro no existe.
+_DIAS_SCHED = {"daily": 1.0, "weekly": 7.0, "10_days": 10.0, "14_days": 14.0,
+               "bi-weekly": 15.0, "semi-monthly": 15.0, "monthly": 30.0,
+               "bi-monthly": 60.0}
+dias_nomina = 0.0
+try:
+    _tbl_dias = payslip._rule_parameter("l10n_mx_schedule_table") or {}
+    dias_nomina = float(_tbl_dias.get(_sched) or 0.0)
+except Exception:
+    dias_nomina = 0.0
+if not dias_nomina:
+    dias_nomina = _DIAS_SCHED.get(_sched) or float(_dias_calendario or 30)
 
 # Factor de mensualizacion: el ISR se calcula MENSUAL y despues se saca la
 # parte proporcional. SIEMPRE es dias_mes / dias del periodo, como Aspel:
 #   quincena -> 30.4 / 15 = 2.026667  (NO 2.0)
 #   semana   -> 30.4 / 7  = 4.342857
 _DIAS_MES = _p("mx_jandea_dias_mes_isr", 30.4)
-if _sched == "monthly":
-    factor_mes = 1.0
+if dias_nomina >= 30.0:
+    # Mensual (o mayor): la tabla mensual se aplica tal cual, sin factor.
+    factor_mes = 30.0 / dias_nomina
 else:
     factor_mes = _DIAS_MES / (dias_nomina or _DIAS_MES)
 
