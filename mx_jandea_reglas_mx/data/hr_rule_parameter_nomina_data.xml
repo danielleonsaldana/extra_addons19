@@ -194,6 +194,33 @@
             <field name="parameter_value">0.0</field>
         </record>
 
+        <!-- Vales de despensa: días con los que se calcula el tope exento.
+             30.4 = 40% de la UMA x 30.4 (mensual, criterio del cliente).
+             0    = usar los días del periodo. -->
+        <record id="rule_param_vd_dias_tope_base" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales · Días para el tope exento (30.4 = mensual, 0 = días del periodo)</field>
+            <field name="code">mx_jandea_vd_dias_tope_base</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_dias_tope_base_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_dias_tope_base"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">30.4</field>
+        </record>
+
+        <!-- 0 = se entrega el importe completo y lo que rebase el tope GRAVA.
+             1 = se recorta el importe al tope exento. -->
+        <record id="rule_param_vd_topar_importe" model="hr.rule.parameter">
+            <field name="name">MX Jandea · Vales · Topar el importe al máximo exento (1/0)</field>
+            <field name="code">mx_jandea_vd_topar_importe</field>
+            <field name="country_id" ref="base.mx"/>
+        </record>
+        <record id="rule_param_vd_topar_importe_v" model="hr.rule.parameter.value">
+            <field name="rule_parameter_id" ref="rule_param_vd_topar_importe"/>
+            <field name="date_from" eval="'2020-01-01'"/>
+            <field name="parameter_value">0.0</field>
+        </record>
+
         <!-- Fondo de ahorro: 0 = se aporta el 13% completo y lo que rebase el
              tope de exención (UMA × días del periodo × 1.3) GRAVA.
              1 = se recorta la aportación al tope (criterio del Excel). -->

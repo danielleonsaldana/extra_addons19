@@ -229,9 +229,17 @@ pd_grav = pd_imp - pd_exe
 # (una quincena completa = 15). Antes se mensualizaba a 30.4 y se prorrateaba,
 # lo que daba 15.2 dias en una quincena.
 _dias_exe = dias_lab or dias_nomina
-_vd_tope = UMA * _p("mx_jandea_vd_uma_pct", 0.40) * _dias_exe
+# --------------------------------------------------------------------------
+# VALES DE DESPENSA
+# Tope de exencion = 40% de la UMA x 30.4  (mx_jandea_vd_dias_tope_base).
+# Si el parametro se pone en 0, el tope se calcula con los dias del periodo.
+# Lo que rebase el tope GRAVA (no se recorta el importe, salvo que
+# mx_jandea_vd_topar_importe = 1).
+# --------------------------------------------------------------------------
+_vd_dias = _p("mx_jandea_vd_dias_tope_base", 30.4) or _dias_exe
+_vd_tope = UMA * _p("mx_jandea_vd_uma_pct", 0.40) * _vd_dias
 _vd_calc = (sueldo_mensual * _p("mx_jandea_vd_tasa", 0.10)) * _prorrata
-if _vd_calc > _vd_tope:
+if _p("mx_jandea_vd_topar_importe", 0.0) and _vd_calc > _vd_tope:
     _vd_calc = _vd_tope
 # mx_jandea_vd_auto = 0 (por omision): los vales solo se pagan si se captura
 # el importe en el recibo. = 1: se otorgan automaticamente a todo el que tenga
