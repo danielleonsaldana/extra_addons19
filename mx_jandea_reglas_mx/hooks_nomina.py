@@ -12,6 +12,19 @@ Replica el Excel "Jandea_Ejemplo_Listado_de_Nomina.xlsx" (hoja Ejemplo):
 Este archivo NO toca nada del finiquito: vive aparte de ``hooks.py`` y solo
 escribe sobre la estructura nativa de nómina normal.
 
+v19.0.1.26.0 — ISR quincenal alineado con Aspel:
+
+  1. La BASE GRAVABLE se arma SUMANDO (sueldo + lo que grava) en vez de
+     restarle los exentos al GROSS. Así el fondo de ahorro NO resta nada de
+     la base: solo suma el EXCEDENTE del tope (1.3 UMA por día del periodo,
+     es decir UMA x 15 x 1.3 en una quincena).
+  2. La mensualización usa 30.4 / días del periodo (quincena = 30.4/15 =
+     2.026667), no 2.0.
+  3. Se calcula el SUBSIDIO PARA EL EMPLEO conforme al decreto DOF
+     31/12/2025 (15.02% de la UMA mensual, prorrateado entre 30.4 por los
+     días del periodo, tope de ingreso mensual $11,492.66) y se resta al
+     ISR dentro de la misma regla, como lo muestra Aspel.
+
 Correcciones aplicadas respecto del Excel original (decisión del cliente):
   * ``O9`` apuntaba a ``OJ129`` (referencia inexistente) -> salario diario.
   * ``W8`` sumaba el TOPE de vales en vez del EXCEDENTE.
@@ -102,10 +115,14 @@ _DIAS_SCHED = {"daily": 1.0, "weekly": 7.0, "bi-weekly": 14.0,
 dias_nomina = _DIAS_SCHED.get(_sched) or float(_dias_calendario or 30)
 
 # Factor de mensualizacion: el ISR se calcula MENSUAL y despues se saca la
-# parte proporcional. Quincenal = 2 quincenas por mes, semanal = 30.4/7, etc.
-_FACTOR_SCHED = {"daily": 30.4, "weekly": 30.4 / 7.0, "bi-weekly": 30.4 / 14.0,
-                 "semi-monthly": 2.0, "monthly": 1.0}
-factor_mes = _FACTOR_SCHED.get(_sched) or (30.4 / (dias_nomina or 30.4))
+# parte proporcional. SIEMPRE es dias_mes / dias del periodo, como Aspel:
+#   quincena -> 30.4 / 15 = 2.026667  (NO 2.0)
+#   semana   -> 30.4 / 7  = 4.342857
+_DIAS_MES = _p("mx_jandea_dias_mes_isr", 30.4)
+if _sched == "monthly":
+    factor_mes = 1.0
+else:
+    factor_mes = _DIAS_MES / (dias_nomina or _DIAS_MES)
 
 # La exencion de tiempo extra es SEMANAL -> cuantas semanas trae el periodo.
 semanas = dias_nomina / 7.0
@@ -194,9 +211,11 @@ pd_grav = pd_imp - pd_exe
 # Se otorga el 10% del sueldo salvo que rebase el tope. Prorrateado a los
 # dias laborados del periodo.
 # --------------------------------------------------------------------------
-_vd_tope_mes = UMA * _p("mx_jandea_vd_uma_pct", 0.40) * _p(
-    "mx_jandea_favd_dias_mes", 30.4)
-_vd_tope = _vd_tope_mes * _prorrata
+# Dias que se usan para topar las exenciones del periodo: los dias pagados
+# (una quincena completa = 15). Antes se mensualizaba a 30.4 y se prorrateaba,
+# lo que daba 15.2 dias en una quincena.
+_dias_exe = dias_lab or dias_nomina
+_vd_tope = UMA * _p("mx_jandea_vd_uma_pct", 0.40) * _dias_exe
 _vd_calc = (sueldo_mensual * _p("mx_jandea_vd_tasa", 0.10)) * _prorrata
 if _vd_calc > _vd_tope:
     _vd_calc = _vd_tope
@@ -209,12 +228,19 @@ vd_exe = vd_imp if vd_imp < _vd_tope else _vd_tope
 vd_grav = vd_imp - vd_exe
 
 # --------------------------------------------------------------------------
-# FONDO DE AHORRO  (columna O) - exento hasta 1.3 UMA / 13% del salario
+# FONDO DE AHORRO  (columna O)
+# Art. 93 fracc. XI LISR: exento mientras la aportacion no exceda el 13% del
+# salario NI 1.3 veces la UMA elevada al periodo. En una quincena:
+#     tope = UMA * 15 * 1.3
+# Solo el EXCEDENTE de ese tope grava; el resto no toca la base de ISR.
 # --------------------------------------------------------------------------
-_fa_tope = (UMA * _p("mx_jandea_fa_uma_mult", 1.3)
-            * _p("mx_jandea_favd_dias_mes", 30.4)) * _prorrata
+_fa_tope = UMA * _p("mx_jandea_fa_uma_mult", 1.3) * _dias_exe
 _fa_calc = (sd * dias_lab) * _p("mx_jandea_fa_tasa", 0.13)
-if _fa_calc > _fa_tope:
+# Por omision NO se topa el importe: se aporta el 13% completo y lo que pase
+# del tope de exencion simplemente GRAVA (que es el punto del art. 93 XI).
+# Con mx_jandea_fa_topar_importe = 1 se recorta la aportacion al tope, como
+# hacia el Excel.
+if _p("mx_jandea_fa_topar_importe", 0.0) and _fa_calc > _fa_tope:
     _fa_calc = _fa_tope
 # mx_jandea_fa_auto: mismo criterio que los vales.
 fa_imp = _in("FONDO_AHORRO", 0.0) or (
@@ -240,31 +266,58 @@ NOM_BASE_BLOCK = '''
 # --------------------------------------------------------------------------
 # BASE GRAVABLE (columna W del Excel)
 #
-# Se parte del GROSS que arma Odoo y se le resta lo exento. El parametro
-# mx_jandea_gross_incluye_exento existe porque, segun como l10n_mx arme la
-# categoria exenta, GROSS puede o no traerla dentro:
-#   1 (por omision) -> GROSS trae lo exento, hay que restarlo.
-#   0               -> GROSS ya viene neto de exentos, no se resta nada.
-# Se valida con un recibo de prueba y se deja fijo.
+# METODO ADITIVO (por omision, mx_jandea_base_metodo = 0):
+#     base = sueldo + SOLO lo que grava
+# Se suma el sueldo del periodo mas la parte GRAVADA de cada concepto. El
+# fondo de ahorro y los vales NO restan nada: solo suman su excedente del
+# tope de exencion. Es el criterio de Aspel y evita depender de como arme
+# l10n_mx la categoria GROSS.
+#
+# METODO SUSTRACTIVO (mx_jandea_base_metodo = 1): comportamiento anterior,
+# base = GROSS - exentos. Se deja como escape por si alguna empresa mete
+# percepciones gravadas por fuera de estas reglas.
 # --------------------------------------------------------------------------
-_gross = categories["GROSS"]
-if _p("mx_jandea_gross_incluye_exento", 1.0):
-    base_gravable = _gross - total_exento
-else:
-    base_gravable = _gross
+try:
+    _basic = categories["BASIC"]
+except Exception:
+    _basic = 0.0
+if not _basic:
+    _basic = sd * dias_lab
+
+base_gravable = (_basic
+                 + he_doble_grav + he_triple_grav
+                 + festivo_grav + descanso_grav
+                 + pv_grav + pd_grav
+                 + vd_grav + fa_grav
+                 + otras_perc)
+
+if _p("mx_jandea_base_metodo", 0.0):
+    _gross = categories["GROSS"]
+    if _p("mx_jandea_gross_incluye_exento", 1.0):
+        base_gravable = _gross - total_exento
+    else:
+        base_gravable = _gross
+
 if base_gravable < 0:
     base_gravable = 0.0
 '''
 
 NOM_ISR_BLOCK = '''
 # --------------------------------------------------------------------------
-# ISR (columna X)
-# "Los calculos de impuesto (ISR) deben ser mensualizados y despues sacar la
-#  parte proporcional de acuerdo a la periodicidad de la nomina."
+# ISR (columna X)  —  mismo camino que Aspel:
 #
-# El SUBSIDIO PARA EL EMPLEO no se calcula aqui: l10n_mx ya trae sus reglas
-# SUBSIDY / SUBSIDY_CURRENT_MONTH / SUBSIDY_NEXT_MONTH. La columna X del
-# Excel equivale, en Odoo, a ISR + SUBSIDY.
+#   1) base            = sueldo + solo lo que grava
+#   2) base_mes        = base * (30.4 / dias del periodo)
+#   3) impuesto_mes    = tarifa mensual SAT (Anexo 8 RMF)
+#   4) impuesto_periodo= impuesto_mes * (dias del periodo / 30.4)
+#   5) impuesto_neto   = impuesto_periodo - subsidio para el empleo
+#
+# El subsidio se calcula aqui (decreto DOF 31/12/2025) y se resta en la misma
+# regla, para que la linea de ISR muestre el neto igual que Aspel. Las reglas
+# nativas SUBSIDY / SUBSIDY_CURRENT_MONTH / SUBSIDY_NEXT_MONTH se neutralizan
+# para no duplicarlo (ver _patch_subsidio). Con
+# mx_jandea_isr_neto_subsidio = 0 se invierte: el ISR sale bruto y el subsidio
+# vuelve a su propia linea.
 # --------------------------------------------------------------------------
 def _isr_tabla():
     try:
@@ -287,14 +340,39 @@ def _isr_tabla():
         (425642.00, 999999999.0, 133488.54, 0.35),
     ]
 
-_isr = 0.0
+_isr_mes = 0.0
 _bg_mensual = base_gravable * factor_mes
 if _bg_mensual > 0:
     _low, _fix, _rate = 0.01, 0.0, 0.0192
     for _l, _h, _f, _r in _isr_tabla():
         if _bg_mensual >= _l:
             _low, _fix, _rate = _l, _f, _r
-    _isr = ((_bg_mensual - _low) * _rate + _fix) / (factor_mes or 1.0)
+    _isr_mes = (_bg_mensual - _low) * _rate + _fix
+_isr_bruto = _isr_mes / (factor_mes or 1.0)
+
+# --------------------------------------------------------------------------
+# SUBSIDIO PARA EL EMPLEO  (decreto DOF 31/12/2025, vigente 2026)
+#   monto mensual = UMA mensual * 15.02%   (enero 2026: 15.59% de la UMA 2025)
+#   periodos menores a un mes: monto mensual / 30.4 * dias del periodo
+#   solo si el ingreso GRAVADO mensual no excede $11,492.66
+# El monto mensual se toma del parametro mx_jandea_subsidio_monto_mes si esta
+# capturado (asi se versiona por año/mes sin tocar codigo); si va en 0 se
+# calcula con el porcentaje.
+# --------------------------------------------------------------------------
+_sub_mes = _p("mx_jandea_subsidio_monto_mes", 0.0)
+if not _sub_mes:
+    _sub_mes = (UMA * _DIAS_MES) * _p("mx_jandea_subsidio_pct", 0.1502)
+subsidio = 0.0
+if _bg_mensual > 0 and _bg_mensual <= _p("mx_jandea_subsidio_limite_mes",
+                                         11492.66):
+    subsidio = (_sub_mes / (_DIAS_MES or 30.4)) * dias_nomina
+
+# Desde el decreto de 2024 el subsidio ya NO se entrega en efectivo cuando
+# supera al impuesto: solo lo cancela.
+if _p("mx_jandea_isr_neto_subsidio", 1.0):
+    _isr = _isr_bruto - subsidio
+else:
+    _isr = _isr_bruto
 
 # Si el salario diario es el minimo general no hay retencion (LISR; el Excel
 # lo resuelve en H4 con IF(SD=SMG,0,...)).
@@ -393,7 +471,18 @@ def _nomina_rules_spec():
         ('rule_nom_isr_mensualizado', 'Info · ISR Mensualizado',
          'INFO_ISR_MENSUAL', 'INFO', 206,
          p + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK
-         + '\nresult = _isr\n'),
+         + '\nresult = _isr_mes\n'),
+        ('rule_nom_isr_periodo', 'Info · ISR del Período (antes de subsidio)',
+         'INFO_ISR_BRUTO', 'INFO', 207,
+         p + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK
+         + '\nresult = _isr_bruto\n'),
+        ('rule_nom_subsidio_info', 'Info · Subsidio para el Empleo aplicado',
+         'INFO_SUBSIDIO', 'INFO', 208,
+         p + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK + '''
+result = subsidio if _p("mx_jandea_isr_neto_subsidio", 1.0) else 0.0
+if _isr_bruto < result:
+    result = _isr_bruto
+'''),
     ]
 
 
@@ -501,6 +590,10 @@ def _build_nomina_rules(env):
     # ISR mensualizado sobre la base gravable.
     _patch_isr(env, struct)
 
+    # Subsidio para el empleo: se resta dentro del ISR, las reglas nativas se
+    # neutralizan para no contarlo dos veces.
+    _patch_subsidio(env, struct)
+
     # Aviso de traslape con reglas nativas.
     for code, nativa in NATIVAS_EQUIVALENTES.items():
         if Rule.search_count([('code', '=', nativa)]):
@@ -563,3 +656,47 @@ def _patch_isr(env, struct):
     if isr.amount_python_compute != codigo:
         isr.amount_python_compute = codigo
         _logger.info('%s: regla ISR de nómina normal mensualizada.', MODULE)
+
+
+# Reglas nativas de subsidio de l10n_mx. Con mx_jandea_isr_neto_subsidio = 1
+# (por omisión) el subsidio ya se restó dentro de la regla de ISR, así que
+# estas líneas deben quedar en cero o el recibo lo aplicaría dos veces.
+SUBSIDIO_NATIVAS = ('SUBSIDY', 'SUBSIDY_CURRENT_MONTH', 'SUBSIDY_NEXT_MONTH')
+
+
+def _subsidio_rule_code(principal):
+    """Fórmula para las reglas nativas de subsidio.
+
+    ``principal`` = regla que vuelve a pagar el subsidio en su propia línea
+    cuando el cliente decide NO netearlo contra el ISR.
+    """
+    cola = '''
+result = 0.0
+'''
+    if principal:
+        cola = '''
+# El subsidio solo se paga aparte si NO se netea contra el ISR.
+result = 0.0
+if not _p("mx_jandea_isr_neto_subsidio", 1.0):
+    result = subsidio if subsidio < _isr_bruto else _isr_bruto
+'''
+    return (NOM_PREAMBLE + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK
+            + cola)
+
+
+def _patch_subsidio(env, struct):
+    """Neutraliza las reglas nativas de subsidio en la nómina normal."""
+    Rule = env['hr.salary.rule']
+    for code in SUBSIDIO_NATIVAS:
+        reglas = Rule.search([('code', '=', code),
+                              ('struct_id', '=', struct.id)])
+        if not reglas:
+            continue
+        codigo = _subsidio_rule_code(code == 'SUBSIDY')
+        for r in reglas:
+            if r.amount_python_compute != codigo:
+                r.amount_select = 'code'
+                r.condition_select = 'none'
+                r.amount_python_compute = codigo
+                _logger.info('%s: regla %s neutralizada (el subsidio se resta '
+                             'dentro del ISR).', MODULE, code)

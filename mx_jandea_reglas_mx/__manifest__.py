@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.25.1',
+    'version': '19.0.1.26.0',
     'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + Finiquito/Liquidación + Listado de Nómina (exenciones, base gravable e ISR mensualizado)',
     'description': """
 Reglas complementarias para la nómina mexicana:
@@ -33,9 +33,21 @@ neto. Si la entrada FNQT_ISN_TASA no se captura o va en 0, el ISN no aplica.
   regla informativa BASE_GRAVABLE_ISR (columna W) y el ISR pasa a calcularse
   MENSUALIZADO sobre la base gravable y luego prorrateado a la periodicidad.
   Los vales se compensan contra el neto y llevan el descuento de $1.00.
-  El subsidio al empleo NO se implementa: se usan las reglas nativas de
-  l10n_mx (SUBSIDY / SUBSIDY_CURRENT_MONTH / SUBSIDY_NEXT_MONTH), así que la
-  columna X del Excel equivale en Odoo a ISR + SUBSIDY.
+* ISR QUINCENAL ALINEADO CON ASPEL (v1.26.0):
+    1) base = sueldo + SOLO lo que grava. Se arma sumando, no restando
+       exentos al GROSS: así el fondo de ahorro no resta nada de la base y
+       solo suma su EXCEDENTE del tope (UMA x días del periodo x 1.3, es
+       decir UMA x 15 x 1.3 en una quincena).
+    2) base_mes = base x (30.4 / días del periodo)  -> quincena = 2.026667.
+    3) impuesto_mes = tarifa mensual del SAT (Anexo 8 RMF).
+    4) impuesto_periodo = impuesto_mes x (días del periodo / 30.4).
+    5) impuesto_neto = impuesto_periodo - subsidio para el empleo.
+  El subsidio se calcula con el decreto DOF 31/12/2025 (15.02% de la UMA
+  mensual, 15.59% de la UMA 2025 en enero de 2026, tope de ingreso mensual
+  $11,492.66, prorrateo /30.4 x días) y se resta DENTRO de la regla de ISR;
+  las reglas nativas SUBSIDY / SUBSIDY_CURRENT_MONTH / SUBSIDY_NEXT_MONTH se
+  neutralizan para no aplicarlo dos veces. Con mx_jandea_isr_neto_subsidio = 0
+  el ISR vuelve a salir bruto y el subsidio a su propia línea.
 
 UMA y salario mínimo se leen de parámetros de regla versionados por año
 (mx_jandea_uma / mx_jandea_smg), así que no requieren cambios de código.
