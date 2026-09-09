@@ -252,11 +252,13 @@ vd_grav = vd_imp - vd_exe
 # --------------------------------------------------------------------------
 # FONDO DE AHORRO  (columna O)
 # Art. 93 fracc. XI LISR: exento mientras la aportacion no exceda el 13% del
-# salario NI 1.3 veces la UMA elevada al periodo. En una quincena:
-#     tope = UMA * 15 * 1.3
+# salario NI 1.3 veces la UMA elevada al periodo.
+# Tope = UMA * 1.3 * mx_jandea_fa_dias_tope_base (30.4 por omision, igual que
+# los vales; con 0 se usan los dias del periodo -> UMA * 15 * 1.3).
 # Solo el EXCEDENTE de ese tope grava; el resto no toca la base de ISR.
 # --------------------------------------------------------------------------
-_fa_tope = UMA * _p("mx_jandea_fa_uma_mult", 1.3) * _dias_exe
+_fa_dias = _p("mx_jandea_fa_dias_tope_base", 30.4) or _dias_exe
+_fa_tope = UMA * _p("mx_jandea_fa_uma_mult", 1.3) * _fa_dias
 _fa_calc = (sd * dias_lab) * _p("mx_jandea_fa_tasa", 0.13)
 # Por omision NO se topa el importe: se aporta el 13% completo y lo que pase
 # del tope de exencion simplemente GRAVA (que es el punto del art. 93 XI).
@@ -396,9 +398,10 @@ if _p("mx_jandea_isr_neto_subsidio", 1.0):
 else:
     _isr = _isr_bruto
 
-# Si el salario diario es el minimo general no hay retencion (LISR; el Excel
-# lo resuelve en H4 con IF(SD=SMG,0,...)).
-if sd <= SMG + 0.01 and not _p("mx_jandea_isr_al_minimo", 0.0):
+# El Excel original cancelaba el ISR de quien gana el minimo (IF(SD=SMG,0,...)).
+# Aspel SI retiene en ese caso, asi que mx_jandea_isr_al_minimo va en 1 por
+# omision; ponlo en 0 para recuperar el criterio del Excel.
+if sd <= SMG + 0.01 and not _p("mx_jandea_isr_al_minimo", 1.0):
     _isr = 0.0
 if _isr < 0:
     _isr = 0.0
