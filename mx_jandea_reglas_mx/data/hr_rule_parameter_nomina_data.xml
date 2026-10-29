@@ -48,20 +48,22 @@
             <field name="parameter_value">0.0</field>
         </record>
 
-        <!-- 1.0 = exento el 100% hasta la bolsa (criterio del Excel).
-             0.5 = exento el 50%, art. 93 fracc. I LISR para quien no gana el mínimo. -->
+        <!-- Porcentaje exento del tiempo extra / festivo / descanso para quien
+             GANA MÁS del salario mínimo: 0.5 = 50% (art. 93 fracc. I LISR).
+             A quien gana el mínimo se le exenta el 100% sin tope (en código). -->
         <record id="rule_param_te_pct_exento" model="hr.rule.parameter">
-            <field name="name">MX Jandea · Tiempo extra · Porcentaje exento (1.0 = 100%, 0.5 = art. 93 LISR)</field>
+            <field name="name">MX Jandea · Tiempo extra · Porcentaje exento si gana más del mínimo (0.5 = art. 93 LISR)</field>
             <field name="code">mx_jandea_te_pct_exento</field>
             <field name="country_id" ref="base.mx"/>
         </record>
         <record id="rule_param_te_pct_exento_v" model="hr.rule.parameter.value">
             <field name="rule_parameter_id" ref="rule_param_te_pct_exento"/>
             <field name="date_from" eval="'2020-01-01'"/>
-            <field name="parameter_value">1.0</field>
+            <field name="parameter_value">0.5</field>
         </record>
 
-        <!-- Festivo / descanso laborado: 3.0 = triple (LFT art. 73). -->
+        <!-- Festivo / descanso laborado: 2.0 = se paga el DOBLE adicional al
+             día normal que ya trae el sueldo (LFT arts. 73 y 75). -->
         <record id="rule_param_festivo_mult" model="hr.rule.parameter">
             <field name="name">MX Jandea · Festivo y descanso laborado · Multiplicador del salario diario</field>
             <field name="code">mx_jandea_festivo_mult</field>
@@ -70,7 +72,7 @@
         <record id="rule_param_festivo_mult_v" model="hr.rule.parameter.value">
             <field name="rule_parameter_id" ref="rule_param_festivo_mult"/>
             <field name="date_from" eval="'2020-01-01'"/>
-            <field name="parameter_value">3.0</field>
+            <field name="parameter_value">2.0</field>
         </record>
 
         <!-- Prima vacacional -->
@@ -181,19 +183,6 @@
             <field name="parameter_value">1.0</field>
         </record>
 
-        <!-- ISR a quien percibe el salario mínimo: 0 = sin retención (LISR),
-             1 = retener bajo autorización del cliente (nota H4 del Excel). -->
-        <record id="rule_param_isr_al_minimo" model="hr.rule.parameter">
-            <field name="name">MX Jandea · ISR · Retener a quien gana el salario mínimo (1/0)</field>
-            <field name="code">mx_jandea_isr_al_minimo</field>
-            <field name="country_id" ref="base.mx"/>
-        </record>
-        <record id="rule_param_isr_al_minimo_v" model="hr.rule.parameter.value">
-            <field name="rule_parameter_id" ref="rule_param_isr_al_minimo"/>
-            <field name="date_from" eval="'2020-01-01'"/>
-            <field name="parameter_value">0.0</field>
-        </record>
-
         <!-- Vales de despensa: días con los que se calcula el tope exento.
              30.4 = 40% de la UMA x 30.4 (mensual, criterio del cliente).
              0    = usar los días del periodo. -->
@@ -235,8 +224,10 @@
             <field name="parameter_value">30.4</field>
         </record>
 
-        <!-- 1 = se retiene ISR aunque el salario diario sea el mínimo general
-             (criterio de Aspel).  0 = no se retiene (criterio del Excel). -->
+        <!-- RESPALDO: el criterio de retener ISR a quien gana el salario mínimo
+             se decide POR SUCURSAL con la casilla de la empresa
+             ("Retener ISR aunque gane el salario mínimo"). Este parámetro solo
+             se usa si el campo de la empresa no existe. -->
         <record id="rule_param_isr_al_minimo" model="hr.rule.parameter">
             <field name="name">MX Jandea · ISR · Retener aunque el salario sea el mínimo (1/0)</field>
             <field name="code">mx_jandea_isr_al_minimo</field>

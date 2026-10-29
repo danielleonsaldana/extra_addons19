@@ -21,7 +21,10 @@
                             </div>
                         </td>
                         <td style="width:40%; vertical-align:top; text-align:right;">
-                            <div style="font-size:13px; font-weight:bold;">RECIBO DE NÓMINA</div>
+                            <div style="font-size:13px; font-weight:bold;">
+                                <t t-if="d['es_finiquito']">RECIBO DE FINIQUITO</t>
+                                <t t-else="">RECIBO DE NÓMINA</t>
+                            </div>
                             <div><strong>Folio:</strong> <span t-field="o.number"/></div>
                             <div t-if="d['periodicidad']">
                                 <strong>Periodicidad:</strong> <span t-esc="d['periodicidad']"/>
@@ -138,7 +141,7 @@
                         <span t-esc="d['neto_letras']"/>
                     </td>
                     <td style="border:1px solid #333; padding:6px; text-align:right; background-color:#e8e8e8;">
-                        <div style="font-weight:bold;">NETO A PAGAR</div>
+                        <div style="font-weight:bold;"><span t-esc="d['etiqueta_neto']"/></div>
                         <div style="font-size:14px; font-weight:bold;">
                             <span t-esc="d['neto']"
                                   t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>

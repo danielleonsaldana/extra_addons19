@@ -63,4 +63,11 @@
         <field name="country_id" ref="base.mx"/>
         <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
     </record>
+    <record id="input_faltas" model="hr.payslip.input.type">
+        <field name="name">Faltas (días)</field>
+        <field name="code">FALTAS</field>
+        <field name="country_id" ref="base.mx"/>
+        <field name="struct_ids" eval="[(4, ref('l10n_mx_hr_payroll.l10n_mx_regular_pay'))]"/>
+    </record>
+
 </odoo>

@@ -5,11 +5,15 @@ from odoo import api, models
 # Días completos según la periodicidad de la nómina.
 # El recibo debe mostrar los días del PERÍODO (15 quincenal, 7 semanal...),
 # no únicamente los efectivamente laborados.
+# OJO: en l10n_mx "bi-weekly" es QUINCENAL (15 días) y la catorcenal es
+# "14_days" (la versión anterior los tenía al revés).
 DIAS_POR_PERIODICIDAD = {
     'daily': 1,
     'weekly': 7,
-    'bi-weekly': 14,        # catorcenal
-    'semi-monthly': 15,     # quincenal
+    '10_days': 10,
+    '14_days': 14,
+    'bi-weekly': 15,
+    'semi-monthly': 15,
     'monthly': 30,
     'bi-monthly': 60,
     'quarterly': 90,
@@ -20,7 +24,9 @@ DIAS_POR_PERIODICIDAD = {
 PERIODICIDAD_ES = {
     'daily': 'Diaria',
     'weekly': 'Semanal',
-    'bi-weekly': 'Catorcenal',
+    '10_days': 'Decenal',
+    '14_days': 'Catorcenal',
+    'bi-weekly': 'Quincenal',
     'semi-monthly': 'Quincenal',
     'monthly': 'Mensual',
     'bi-monthly': 'Bimestral',
@@ -28,6 +34,66 @@ PERIODICIDAD_ES = {
     'semi-annually': 'Semestral',
     'annually': 'Anual',
 }
+
+# ---------------------------------------------------------------------------
+# RENGLONES FIJOS DEL RECIBO
+#
+# Cada renglón agrupa las reglas salariales que lo forman (gravado + exento,
+# nativas + Jandea). Las líneas que no caen en ningún renglón van a "Otras
+# percepciones" / "Otras deducciones" según su categoría raíz, así la suma
+# de renglones SIEMPRE cuadra con la línea NET del recibo.
+#
+#   (etiqueta, códigos, opcional)
+#   opcional = True -> el renglón solo se imprime si trae importe.
+#   códigos = '*' -> renglón comodín ("Otras ...").
+# ---------------------------------------------------------------------------
+NOMINA_PERCEPCIONES = [
+    ('Salario básico titular', ('BASIC', 'DIS_ABSENCE', 'IMSS_DISABLE'), False),
+    ('Prima vacacional', ('PRIMA_VAC_MX', 'PRIMA_VAC_MX_EXE',
+                          'HOLIDAY_BONUS'), False),
+    ('Prima dominical', ('PRIMA_DOM', 'PRIMA_DOM_EXE', 'PRIMADOM'), False),
+    ('Festivo laborado', ('FESTIVO_LABORADO', 'FESTIVO_LABORADO_EXE'), False),
+    ('Descanso laborado', ('DESCANSO_LABORADO', 'DESCANSO_LABORADO_EXE'), False),
+    ('Fondo de ahorro', ('FONDO_AHORRO_GRAV', 'FONDO_AHORRO_EXENTO',
+                         'SAVINGS_FUND_EMPLOYER_ALW'), False),
+    ('Vales de despensa', ('VALES_DESPENSA_GRAV', 'VALES_DESPENSA_EXENTO',
+                           'TAX_MEAL_VOUCH', 'NO_TAX_MEAL_VOUCHER',
+                           'MEAL_VOUCHER'), False),
+    ('Otras percepciones', '*', False),
+]
+NOMINA_DEDUCCIONES = [
+    ('FONACOT', ('FONACOT',), False),
+    ('INFONAVIT', ('INFONAVIT', 'INFONAVIT_VOLUNTARIO'), False),
+    # El subsidio para el empleo se netea contra el ISR.
+    ('ISR', ('ISR', 'ISR_ADJUSTMENT', 'ISR_HOLIDAY_TAX', 'SUBSIDY'), False),
+    # Cuotas obreras individuales (categoría IMSS_EMPLOYEE): ver _renglon_de.
+    ('IMSS', ('@IMSS_EMPLOYEE',), False),
+    ('Otras deducciones', '*', False),
+    ('Préstamos personales', ('PRESTAMO',), False),
+]
+
+FINIQUITO_PERCEPCIONES = [
+    ('Salario', ('FNQT_SALARIO',), False),
+    ('Aguinaldo', ('FNQT_AGUINALDO',), False),
+    ('Vacaciones', ('FNQT_VACACIONES',), False),
+    ('Prima vacacional', ('FNQT_PRIMA_VAC',), False),
+    # Las dos indemnizaciones solo si se generan.
+    ('Indemnización constitucional', ('FNQT_IND90',), True),
+    ('Indemnización 20 días por año', ('FNQT_IND20',), True),
+    ('Prima de antigüedad', ('FNQT_PRIMA_ANT',), False),
+    ('Otras percepciones', '*', False),
+]
+FINIQUITO_DEDUCCIONES = [
+    ('Préstamos', ('PRESTAMO',), False),
+    ('IMSS', ('FNQT_IMSS', '@IMSS_EMPLOYEE'), False),
+    ('ISR', ('FNQT_ISR', 'ISR'), False),
+    ('INFONAVIT', ('FNQT_INFONAVIT', 'INFONAVIT'), False),
+    ('FONACOT', ('FNQT_FONACOT', 'FONACOT'), False),
+    ('Otras deducciones', '*', False),
+]
+
+# Categorías raíz que forman el neto (NET = BASIC + ALW + DED).
+RAICES_NETO = ('BASIC', 'ALW', 'DED')
 
 # Traducción de conceptos al español por CÓDIGO de regla salarial.
 # Se traduce solo en el PDF: no se modifican los registros nativos de
@@ -276,43 +342,94 @@ class ReportReciboNomina(models.AbstractModel):
                     return valor
         return ''
 
+    # ------------------------------------------------------------------
+    # Renglones agrupados
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _raiz(categoria):
+        """Código de la categoría raíz (la que no tiene padre)."""
+        cat = categoria
+        visitadas = set()
+        while cat and cat.parent_id and cat.id not in visitadas:
+            visitadas.add(cat.id)
+            cat = cat.parent_id
+        return cat.code if cat else ''
+
+    @staticmethod
+    def _renglon_de(linea, renglones):
+        """Índice del renglón fijo al que pertenece la línea (o None)."""
+        codigo = linea.code or ''
+        cat = linea.category_id.code or ''
+        for i, (_etq, codigos, _opc) in enumerate(renglones):
+            if codigos == '*':
+                continue
+            if codigo in codigos or ('@' + cat) in codigos:
+                return i
+        return None
+
+    def _renglones(self, payslip, es_finiquito):
+        """(percepciones, deducciones, neto) con los renglones fijos."""
+        if es_finiquito:
+            def_perc, def_ded = FINIQUITO_PERCEPCIONES, FINIQUITO_DEDUCCIONES
+        else:
+            def_perc, def_ded = NOMINA_PERCEPCIONES, NOMINA_DEDUCCIONES
+        suma_perc = [0.0] * len(def_perc)
+        suma_ded = [0.0] * len(def_ded)
+        cant_perc = [0.0] * len(def_perc)
+        otras_perc = [i for i, r in enumerate(def_perc) if r[1] == '*'][0]
+        otras_ded = [i for i, r in enumerate(def_ded) if r[1] == '*'][0]
+
+        for linea in payslip.line_ids:
+            raiz = self._raiz(linea.category_id)
+            if raiz not in RAICES_NETO or not linea.total:
+                continue
+            i = self._renglon_de(linea, def_perc)
+            if i is not None:
+                suma_perc[i] += linea.total
+                cant_perc[i] += linea.quantity or 0.0
+                continue
+            j = self._renglon_de(linea, def_ded)
+            if j is not None:
+                suma_ded[j] += linea.total
+                continue
+            if raiz == 'DED':
+                suma_ded[otras_ded] += linea.total
+            else:
+                suma_perc[otras_perc] += linea.total
+
+        percepciones = []
+        for i, (etq, codigos, opcional) in enumerate(def_perc):
+            importe = round(suma_perc[i], 2) + 0.0
+            if opcional and not importe:
+                continue
+            nombre = etq
+            if es_finiquito and codigos in (('FNQT_SALARIO',), ('FNQT_IND90',)) \
+                    and cant_perc[i]:
+                nombre = '%s (%s días)' % (etq, round(cant_perc[i], 2))
+            percepciones.append({'nombre': nombre, 'importe': importe})
+        deducciones = []
+        for j, (etq, _codigos, opcional) in enumerate(def_ded):
+            importe = round(-suma_ded[j], 2) + 0.0
+            if opcional and not importe:
+                continue
+            deducciones.append({'nombre': etq, 'importe': importe})
+
+        # El neto impreso es percepciones - deducciones de los MISMOS
+        # renglones, para que el recibo siempre cuadre al centavo. Coincide
+        # con la línea NET salvo diferencias de redondeo de centavos.
+        neto = round(sum(p['importe'] for p in percepciones)
+                     - sum(d['importe'] for d in deducciones), 2) + 0.0
+        return percepciones, deducciones, neto
+
     def _datos_recibo(self, payslip):
         empleado = payslip.employee_id
         version = getattr(payslip, 'version_id', False) or \
             getattr(payslip, 'contract_id', False)
 
-        percepciones, deducciones = [], []
-        for linea in payslip.line_ids:
-            categoria = linea.category_id.code or ''
-            if categoria in CATEGORIAS_EXCLUIDAS:
-                continue
-            if not linea.appears_on_payslip:
-                continue
-            if not linea.total:
-                continue
-            nombre = CONCEPTOS_ES.get(linea.code) or linea.name
-            # La indemnización constitucional muestra los días realmente
-            # pagados (90 por defecto; 60, 45, etc. si se capturaron).
-            if linea.code == 'FNQT_IND90' and linea.quantity:
-                nombre = '%s (%d días)' % (nombre, int(round(linea.quantity)))
-            # El salario pendiente muestra los días pagados (admite más de 15:
-            # varias quincenas atrasadas capturadas en FNQT_DIAS_SAL).
-            elif linea.code == 'FNQT_SALARIO' and linea.quantity:
-                nombre = '%s (%s días)' % (nombre, round(linea.quantity, 2))
-            item = {
-                'codigo': linea.code,
-                'nombre': nombre,
-                'cantidad': linea.quantity,
-                'importe': abs(linea.total),
-            }
-            if categoria == 'DED':
-                deducciones.append(item)
-            else:
-                percepciones.append(item)
-
+        es_finiquito = self._es_finiquito(payslip)
+        percepciones, deducciones, neto = self._renglones(payslip, es_finiquito)
         total_perc = sum(i['importe'] for i in percepciones)
         total_ded = sum(i['importe'] for i in deducciones)
-        neto = total_perc - total_ded
         dias, periodicidad = self._dias_periodo(payslip)
 
         return {
@@ -325,6 +442,8 @@ class ReportReciboNomina(models.AbstractModel):
             'total_deducciones': total_ded,
             'neto': neto,
             'neto_letras': numero_a_letras(neto),
+            'es_finiquito': es_finiquito,
+            'etiqueta_neto': 'NETO A PAGAR' if es_finiquito else 'SALARIO NETO',
             'dias_periodo': dias,
             'periodicidad': periodicidad,
             'rfc': self._campo(empleado, 'mx_rfc', 'l10n_mx_rfc', 'vat'),

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Reglas Salariales Complementarias',
-    'version': '19.0.1.26.3',
+    'version': '19.0.1.27.0',
     'summary': 'Reglas salariales mexicanas no incluidas en l10n_mx_hr_payroll + Finiquito/Liquidación + Listado de Nómina (exenciones, base gravable e ISR mensualizado)',
     'description': """
 Reglas complementarias para la nómina mexicana:
@@ -49,6 +49,15 @@ neto. Si la entrada FNQT_ISN_TASA no se captura o va en 0, el ISN no aplica.
   neutralizan para no aplicarlo dos veces. Con mx_jandea_isr_neto_subsidio = 0
   el ISR vuelve a salir bruto y el subsidio a su propia línea.
 
+* FÓRMULAS UNIFICADAS (v1.27.0): todas las reglas de nómina normal usan el
+  mismo preámbulo (faltas, festivo/descanso al doble, exención de tiempo
+  extra según salario mínimo, vales mensuales, tope anual de fondo de
+  ahorro) en TODAS las estructuras MX_REGULAR. Las partes exentas suman al
+  neto (categoría PERCEP_EXE). Las reglas nativas que se reescriben (ISR,
+  subsidio, mínimos) quedan protegidas contra la actualización de l10n_mx.
+* ISR AL SALARIO MÍNIMO POR SUCURSAL: casilla "Retener ISR aunque gane el
+  salario mínimo" en cada empresa/sucursal (pestaña Nómina MX).
+
 UMA y salario mínimo se leen de parámetros de regla versionados por año
 (mx_jandea_uma / mx_jandea_smg), así que no requieren cambios de código.
     """,
@@ -67,6 +76,7 @@ UMA y salario mínimo se leen de parámetros de regla versionados por año
         'data/hr_salary_rule_data.xml',
         'wizards/fnqt_pct_wizard_views.xml',
         'views/hr_payslip_views.xml',
+        'views/res_company_views.xml',
     ],
     'post_init_hook': 'post_init_hook',
     'installable': True,

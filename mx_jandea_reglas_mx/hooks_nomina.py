@@ -29,9 +29,11 @@ Correcciones aplicadas respecto del Excel original (decisión del cliente):
   * ``O9`` apuntaba a ``OJ129`` (referencia inexistente) -> salario diario.
   * ``W8`` sumaba el TOPE de vales en vez del EXCEDENTE.
   * ``N8/W8/W9/W10`` usaban ``G1``/``G2`` sin ``$`` -> se rompían al copiar.
-  * Festivo y descanso laborado se pagan al TRIPLE (LFT art. 73), no al 200%.
-  * La exención de 5 UMA de tiempo extra es SEMANAL y COMPARTIDA entre horas
-    extra, festivo laborado y descanso laborado (no independiente por concepto).
+  * Festivo y descanso laborado: se paga el DOBLE adicional al día normal
+    que ya trae el sueldo (LFT arts. 73 y 75) — v1.27.0.
+  * La exención de tiempo extra es SEMANAL y COMPARTIDA entre horas extra,
+    festivo y descanso: 100% sin tope si gana el mínimo; 50% con bolsa de
+    5 UMA por semana si gana más (art. 93 fr. I LISR) — v1.27.0.
 
 Todo lo configurable son ``hr.rule.parameter``; no hay cifras en el código.
 """
@@ -45,6 +47,8 @@ MODULE = 'mx_jandea_reglas_mx'
 NOM_INPUT_CODES = [
     'SALARIO_DIARIO', 'DIAS_LABORADOS', 'DIAS_DESCANSO', 'PRIMA_VAC_DIAS',
     'PRIMA_VACACIONAL', 'VALES_DESPENSA', 'FONDO_AHORRO', 'OTRAS_PERCEPCIONES',
+    'FALTAS', 'DIAS_FESTIVO', 'HRS_EXTRA_DOBLE', 'HRS_EXTRA_TRIPLE',
+    'DOMINGOS_PRIMA_DOM',
 ]
 
 # Reglas nativas de l10n_mx que cubren el mismo concepto. Si existen y además
@@ -99,10 +103,20 @@ def _in(c, d=0.0):
 UMA = _p("mx_jandea_uma", 117.31)
 SMG = _p("mx_jandea_smg", 315.04)
 
+# Reglas que trae la estructura del recibo. Sirve para que una estructura
+# SIN fondo de ahorro / vales no los sume a la base gravable del ISR.
+try:
+    _codigos_struct = set(payslip.struct_id.rule_ids.mapped("code"))
+except Exception:
+    _codigos_struct = set()
+
+def _en_struct(c):
+    return (not _codigos_struct) or (c in _codigos_struct)
+
 # --------------------------------------------------------------------------
 # PERIODICIDAD
-# "Los importes y calculos deben ser aplicados de acuerdo a la periodicidad
-#  de la nomina (semanal, quincenal, etc.)"
+# Los dias de cada periodicidad salen de l10n_mx_schedule_table. En l10n_mx
+# "bi-weekly" es QUINCENAL (15 dias) y la catorcenal es "14_days".
 # --------------------------------------------------------------------------
 _dias_calendario = (payslip.date_to - payslip.date_from).days + 1
 try:
@@ -110,11 +124,6 @@ try:
 except Exception:
     _sched = "monthly"
 
-# Los dias de cada periodicidad los define la PROPIA localizacion mexicana en
-# el parametro l10n_mx_schedule_table. OJO: en l10n_mx "bi-weekly" es
-# QUINCENAL (15 dias) y la catorcenal es "14_days". Se lee de ahi para no
-# desalinearse si Odoo agrega o renombra periodicidades; el diccionario de
-# abajo solo es respaldo por si el parametro no existe.
 _DIAS_SCHED = {"daily": 1.0, "weekly": 7.0, "10_days": 10.0, "14_days": 14.0,
                "bi-weekly": 15.0, "semi-monthly": 15.0, "monthly": 30.0,
                "bi-monthly": 60.0}
@@ -127,13 +136,13 @@ except Exception:
 if not dias_nomina:
     dias_nomina = _DIAS_SCHED.get(_sched) or float(_dias_calendario or 30)
 
-# Factor de mensualizacion: el ISR se calcula MENSUAL y despues se saca la
-# parte proporcional. SIEMPRE es dias_mes / dias del periodo, como Aspel:
-#   quincena -> 30.4 / 15 = 2.026667  (NO 2.0)
+# Factor de mensualizacion del ISR: dias_mes / dias del periodo, como Aspel.
+#   quincena -> 30.4 / 15 = 2.026667
 #   semana   -> 30.4 / 7  = 4.342857
+#   mes      -> 30.4 / 30 = 1.013333  (mx_jandea_isr_mensual_directo = 1
+#                                       para aplicar la tarifa mensual tal cual)
 _DIAS_MES = _p("mx_jandea_dias_mes_isr", 30.4)
-if dias_nomina >= 30.0:
-    # Mensual (o mayor): la tabla mensual se aplica tal cual, sin factor.
+if dias_nomina >= 30.0 and _p("mx_jandea_isr_mensual_directo", 0.0):
     factor_mes = 30.0 / dias_nomina
 else:
     factor_mes = _DIAS_MES / (dias_nomina or _DIAS_MES)
@@ -143,22 +152,78 @@ semanas = dias_nomina / 7.0
 
 # --------------------------------------------------------------------------
 # SALARIO DIARIO
-# En estos contratos el "wage" es el importe DEL PERIODO (la quincena), no el
-# mensual; por eso se divide entre los dias de la periodicidad, no entre 30.
+# El "wage" del contrato es el importe DEL PERIODO; se divide entre los dias
+# de la periodicidad.
 # --------------------------------------------------------------------------
 try:
     _wage = (version and version.wage) or 0.0
 except Exception:
     _wage = 0.0
 sd = _in("SALARIO_DIARIO", 0.0) or (_wage / (dias_nomina or 1.0))
-dias_lab = _in("DIAS_LABORADOS", 0.0) or dias_nomina
-sueldo_mensual = sd * 30.0                      # columna G del Excel
+
+# --------------------------------------------------------------------------
+# ASISTENCIA
+# Faltas del periodo, en este orden:
+#  1) entrada FALTAS capturada en el recibo (dias);
+#  2) dias NO pagados (ausencias sin goce) del recibo, llevados a la escala
+#     de dias de la periodicidad.
+# Dias pagados = dias del periodo - faltas, salvo que se capture
+# DIAS_LABORADOS. Vales y fondo de ahorro se calculan sobre esos dias.
+# --------------------------------------------------------------------------
+def _faltas_de(ps, dias_per):
+    _f = 0.0
+    _hay = False
+    try:
+        for _il in ps.input_line_ids:
+            _c = _il.input_type_id.code if _il.input_type_id else False
+            if _c == "FALTAS":
+                _f += _il.amount or 0.0
+                _hay = True
+    except Exception:
+        pass
+    if _hay:
+        return _f
+    _tot = 0.0
+    _sin_goce = 0.0
+    try:
+        for _wd in ps.worked_days_line_ids:
+            _n = _wd.number_of_days or 0.0
+            _tot += _n
+            if not _wd.is_paid:
+                _sin_goce += _n
+    except Exception:
+        return 0.0
+    if _tot and _sin_goce:
+        return dias_per * _sin_goce / _tot
+    return 0.0
+
+def _dias_pagados_de(ps, dias_per):
+    try:
+        for _il in ps.input_line_ids:
+            _c = _il.input_type_id.code if _il.input_type_id else False
+            if _c == "DIAS_LABORADOS" and _il.amount:
+                return _il.amount
+    except Exception:
+        pass
+    _d = dias_per - _faltas_de(ps, dias_per)
+    return _d if _d > 0.0 else 0.0
+
+faltas = _faltas_de(payslip, dias_nomina)
+dias_lab = _dias_pagados_de(payslip, dias_nomina)
+factor_asistencia = (dias_lab / dias_nomina) if dias_nomina else 0.0
+sueldo_mensual = sd * 30.0
 _prorrata = (dias_lab / 30.0) if dias_lab else 0.0
 
 # --------------------------------------------------------------------------
-# TIEMPO EXTRA / FESTIVO / DESCANSO  (columnas L y M)
-# Pago al TRIPLE (LFT art. 73: salario del dia mas doble).
-# Exencion: bolsa COMUN de 5 UMA por semana repartida en este orden.
+# TIEMPO EXTRA / FESTIVO / DESCANSO
+# Horas extra: dobles (LFT art. 67) y triples (art. 68).
+# Festivo y descanso laborados: se paga el DOBLE como concepto adicional
+# (LFT arts. 73 y 75); el dia normal ya viene incluido en el sueldo.
+#
+# Exencion art. 93 fr. I LISR:
+#  - Gana el minimo: 100% exento, sin tope de UMA.
+#  - Gana mas del minimo: 50% exento, con tope de 5 UMA por semana
+#    (bolsa comun repartida en este orden: dobles, triples, festivo, descanso).
 # --------------------------------------------------------------------------
 try:
     _horas_dia = (version.resource_calendar_id.hours_per_day or 8.0)
@@ -166,21 +231,26 @@ except Exception:
     _horas_dia = 8.0
 _sh = sd / (_horas_dia or 8.0)
 
-_mult_fest = _p("mx_jandea_festivo_mult", 3.0)
+_mult_fest = _p("mx_jandea_festivo_mult", 2.0)
+_dias_fest = _in("DIAS_FESTIVO", 0.0)
+_dias_desc = _in("DIAS_DESCANSO", 0.0)
+
 he_doble_imp = _sh * 2.0 * _in("HRS_EXTRA_DOBLE", 0.0)
 he_triple_imp = _sh * 3.0 * _in("HRS_EXTRA_TRIPLE", 0.0)
-festivo_imp = sd * _mult_fest * _in("DIAS_FESTIVO", 0.0)
-descanso_imp = sd * _mult_fest * _in("DIAS_DESCANSO", 0.0)
+festivo_imp = sd * _mult_fest * _dias_fest
+descanso_imp = sd * _mult_fest * _dias_desc
 
-# Porcentaje exento del tiempo extra: 1.0 = 100% (criterio del Excel).
-# El art. 93 fracc. I LISR exenta el 50% para quien no gana el minimo: para
-# aplicarlo basta poner 0.5 en el parametro, sin tocar codigo.
-_te_pct = _p("mx_jandea_te_pct_exento", 1.0)
-# Semanas que se consideran para la bolsa: 0 = las semanas reales del periodo
-# (una quincena trae ~2.14). Si el criterio del cliente es una sola bolsa por
-# periodo (como el Excel de ejemplo), se pone 1 en mx_jandea_te_semanas.
-_sem_exe = _p("mx_jandea_te_semanas", 0.0) or semanas
-_bolsa = UMA * _p("mx_jandea_te_uma_semana", 5.0) * _sem_exe
+# Gana el minimo: SD <= SMG (tolerancia de centavos por redondeo).
+gana_minimo = sd <= (SMG + 0.01)
+
+if gana_minimo:
+    _te_pct = 1.0
+    _bolsa = float("inf")
+else:
+    _te_pct = _p("mx_jandea_te_pct_exento", 0.5)
+    # 0 = semanas reales del periodo; 1 = una sola bolsa por periodo.
+    _sem_exe = _p("mx_jandea_te_semanas", 0.0) or semanas
+    _bolsa = UMA * _p("mx_jandea_te_uma_semana", 5.0) * _sem_exe
 
 def _reparte(importe, bolsa):
     _tope = importe * _te_pct
@@ -200,7 +270,7 @@ festivo_grav = festivo_imp - festivo_exe
 descanso_grav = descanso_imp - descanso_exe
 
 # --------------------------------------------------------------------------
-# PRIMA VACACIONAL  (columna K) - exenta 15 UMA
+# PRIMA VACACIONAL - exenta 15 UMA
 # --------------------------------------------------------------------------
 pv_imp = _in("PRIMA_VACACIONAL", 0.0) or (
     sd * _in("PRIMA_VAC_DIAS", 0.0) * _p("mx_jandea_pv_pct", 0.25))
@@ -209,9 +279,8 @@ pv_exe = pv_imp if pv_imp < _pv_tope else _pv_tope
 pv_grav = pv_imp - pv_exe
 
 # --------------------------------------------------------------------------
-# PRIMA DOMINICAL  (columna Q) - 25% del SD por domingo laborado
-# Exencion: art. 93 fracc. XIV LISR = 1 UMA por domingo. Si el cliente exige
-# el criterio del Excel (1 salario minimo), se pone 1 en mx_jandea_pd_base_smg.
+# PRIMA DOMINICAL - 25% del SD por domingo; exenta 1 UMA por domingo
+# (o 1 SMG si mx_jandea_pd_base_smg = 1).
 # --------------------------------------------------------------------------
 _domingos = _in("DOMINGOS_PRIMA_DOM", 0.0)
 pd_imp = sd * _domingos * _p("mx_jandea_pd_pct", 0.25)
@@ -220,65 +289,117 @@ _pd_tope = _pd_base * _domingos
 pd_exe = pd_imp if pd_imp < _pd_tope else _pd_tope
 pd_grav = pd_imp - pd_exe
 
-# --------------------------------------------------------------------------
-# VALES DE DESPENSA  (columna N) - exentos 40% de la UMA al mes
-# Se otorga el 10% del sueldo salvo que rebase el tope. Prorrateado a los
-# dias laborados del periodo.
-# --------------------------------------------------------------------------
-# Dias que se usan para topar las exenciones del periodo: los dias pagados
-# (una quincena completa = 15). Antes se mensualizaba a 30.4 y se prorrateaba,
-# lo que daba 15.2 dias en una quincena.
+# Dias para topar exenciones del periodo.
 _dias_exe = dias_lab or dias_nomina
+
 # --------------------------------------------------------------------------
 # VALES DE DESPENSA
-# Tope de exencion = 40% de la UMA x 30.4  (mx_jandea_vd_dias_tope_base).
-# Si el parametro se pone en 0, el tope se calcula con los dias del periodo.
-# Lo que rebase el tope GRAVA (no se recorta el importe, salvo que
-# mx_jandea_vd_topar_importe = 1).
+# Tope exento = 40% de la UMA x 30.4 (mx_jandea_vd_dias_tope_base; 0 = dias
+# del periodo). Lo que rebase el tope GRAVA.
+#
+# Se entregan UNA vez al mes:
+#   * semanal / mensual: en el recibo que cierra el mes;
+#   * quincenal: en la quincena cuyo date_to sea >= mx_jandea_vd_dia_desde
+#     (16 = segunda quincena; 0 = en todas).
+# En automatico (mx_jandea_vd_auto = 1) el monto del mes es el 10% de
+# salario diario x dias PAGADOS de cada recibo del mes (cada falta descuenta
+# su parte); los periodos del mes que aun no se calculan se proyectan
+# completos.
 # --------------------------------------------------------------------------
 _vd_dias = _p("mx_jandea_vd_dias_tope_base", 30.4) or _dias_exe
 _vd_tope = UMA * _p("mx_jandea_vd_uma_pct", 0.40) * _vd_dias
 _vd_calc = (sueldo_mensual * _p("mx_jandea_vd_tasa", 0.10)) * _prorrata
 if _p("mx_jandea_vd_topar_importe", 0.0) and _vd_calc > _vd_tope:
     _vd_calc = _vd_tope
-# mx_jandea_vd_auto = 0 (por omision): los vales solo se pagan si se captura
-# el importe en el recibo. = 1: se otorgan automaticamente a todo el que tenga
-# contrato, calculados como el Excel (10% del sueldo topado a la exencion).
 vd_imp = _in("VALES_DESPENSA", 0.0) or (
     _vd_calc if _p("mx_jandea_vd_auto", 0.0) else 0.0)
+_vd_dia_desde = _p("mx_jandea_vd_dia_desde", 0.0)
+_ultimo_mes = payslip.date_to + relativedelta(day=31)
+_inicio_mes = payslip.date_from + relativedelta(day=1)
+_es_fin_mes = payslip.date_from <= _ultimo_mes and payslip.date_to >= (_ultimo_mes + relativedelta(days=-2))
+if _sched == "weekly" or _sched == "monthly":
+    _puede_vale = _es_fin_mes
+else:
+    _puede_vale = (not _vd_dia_desde) or (payslip.date_to.day >= _vd_dia_desde)
+if not _puede_vale:
+    vd_imp = 0.0
+elif not _in("VALES_DESPENSA", 0.0) and _p("mx_jandea_vd_auto", 0.0):
+    _este = sd * dias_lab
+    _prev = payslip.env["hr.payslip"].search([
+        ("employee_id", "=", payslip.employee_id.id),
+        ("state", "!=", "cancel"),
+        ("date_to", ">=", _inicio_mes),
+        ("date_to", "<", payslip.date_from),
+    ], order="date_to desc")
+    _suma = _este
+    _nprev = 0
+    for _ps in _prev:
+        _suma += sd * _dias_pagados_de(_ps, dias_nomina)
+        _nprev += 1
+    _periodo_completo = sd * dias_nomina
+    if _sched == "weekly":
+        _faltan = 3 - _nprev
+        if _faltan > 0:
+            _suma += _faltan * _periodo_completo
+    elif _sched != "monthly" and _nprev < 1:
+        _suma += _periodo_completo
+    _vd_mes = _suma * _p("mx_jandea_vd_tasa", 0.10)
+    if _p("mx_jandea_vd_topar_importe", 0.0) and _vd_mes > _vd_tope:
+        _vd_mes = _vd_tope
+    vd_imp = _vd_mes
+if not (_en_struct("VALES_DESPENSA_GRAV") or _en_struct("VALES_DESPENSA_EXENTO")):
+    vd_imp = 0.0
 vd_exe = vd_imp if vd_imp < _vd_tope else _vd_tope
 vd_grav = vd_imp - vd_exe
 
 # --------------------------------------------------------------------------
-# FONDO DE AHORRO  (columna O)
-# Art. 93 fracc. XI LISR: exento mientras la aportacion no exceda el 13% del
-# salario NI 1.3 veces la UMA elevada al periodo.
-# Tope = UMA * 1.3 * mx_jandea_fa_dias_tope_base (30.4 por omision, igual que
-# los vales; con 0 se usan los dias del periodo -> UMA * 15 * 1.3).
-# Solo el EXCEDENTE de ese tope grava; el resto no toca la base de ISR.
+# FONDO DE AHORRO - art. 93 fr. XI LISR
+# Exento hasta 1.3 UMA x dias (mx_jandea_fa_dias_tope_base; 0 = dias del
+# periodo) y nunca mas de 1.3 UMA x 365 en el año (se descuenta lo exento de
+# los recibos anteriores del año). Solo el EXCEDENTE grava.
+# El importe automatico es 13% de salario diario x dias PAGADOS; un importe
+# capturado fijo tambien se proporciona a la asistencia
+# (mx_jandea_fa_captura_asist = 0 para respetarlo tal cual).
 # --------------------------------------------------------------------------
 _fa_dias = _p("mx_jandea_fa_dias_tope_base", 30.4) or _dias_exe
 _fa_tope = UMA * _p("mx_jandea_fa_uma_mult", 1.3) * _fa_dias
+_fa_tope_anual = UMA * _p("mx_jandea_fa_uma_mult", 1.3) * 365.0
+_ytd_fa = 0.0
+_prev_fa = payslip.env["hr.payslip"].search([
+    ("employee_id", "=", payslip.employee_id.id),
+    ("state", "!=", "cancel"),
+    ("date_from", ">=", date(payslip.date_from.year, 1, 1)),
+    ("date_to", "<", payslip.date_from),
+])
+for _ps in _prev_fa:
+    for _ln in _ps.line_ids:
+        if _ln.code == "FONDO_AHORRO_EXENTO":
+            _ytd_fa += _ln.total
+_queda_fa = _fa_tope_anual - _ytd_fa
+if _queda_fa < 0.0:
+    _queda_fa = 0.0
+if _queda_fa < _fa_tope:
+    _fa_tope = _queda_fa
 _fa_calc = (sd * dias_lab) * _p("mx_jandea_fa_tasa", 0.13)
-# Por omision NO se topa el importe: se aporta el 13% completo y lo que pase
-# del tope de exencion simplemente GRAVA (que es el punto del art. 93 XI).
-# Con mx_jandea_fa_topar_importe = 1 se recorta la aportacion al tope, como
-# hacia el Excel.
 if _p("mx_jandea_fa_topar_importe", 0.0) and _fa_calc > _fa_tope:
     _fa_calc = _fa_tope
-# mx_jandea_fa_auto: mismo criterio que los vales.
-fa_imp = _in("FONDO_AHORRO", 0.0) or (
+_fa_cap = _in("FONDO_AHORRO", 0.0)
+if _fa_cap and _p("mx_jandea_fa_captura_asist", 1.0):
+    _fa_cap = _fa_cap * factor_asistencia
+fa_imp = _fa_cap or (
     _fa_calc if _p("mx_jandea_fa_auto", 0.0) else 0.0)
+if not (_en_struct("FONDO_AHORRO_GRAV") or _en_struct("FONDO_AHORRO_EXENTO")):
+    fa_imp = 0.0
 fa_exe = fa_imp if fa_imp < _fa_tope else _fa_tope
 fa_grav = fa_imp - fa_exe
 
 # --------------------------------------------------------------------------
-# OTRAS PERCEPCIONES  (columna R) - gravan al 100%
+# OTRAS PERCEPCIONES - gravan al 100%
 # --------------------------------------------------------------------------
 otras_perc = _in("OTRAS_PERCEPCIONES", 0.0)
 
 # --------------------------------------------------------------------------
-# TOTAL EXENTO del periodo (para despejar la base gravable).
+# TOTAL EXENTO del periodo.
 # --------------------------------------------------------------------------
 total_exento = (he_doble_exe + he_triple_exe + festivo_exe + descanso_exe
                 + pv_exe + pd_exe + vd_exe + fa_exe)
@@ -398,10 +519,20 @@ if _p("mx_jandea_isr_neto_subsidio", 1.0):
 else:
     _isr = _isr_bruto
 
-# El Excel original cancelaba el ISR de quien gana el minimo (IF(SD=SMG,0,...)).
-# Aspel SI retiene en ese caso, asi que mx_jandea_isr_al_minimo va en 1 por
-# omision; ponlo en 0 para recuperar el criterio del Excel.
-if sd <= SMG + 0.01 and not _p("mx_jandea_isr_al_minimo", 1.0):
+# --------------------------------------------------------------------------
+# SALARIO MINIMO (art. 96 LISR) — se decide POR SUCURSAL (empresa):
+#   casilla "Retener ISR aunque gane el salario minimo" de la empresa del
+#   recibo (res.company.mx_jandea_isr_retener_minimo).
+#     marcada    -> se retiene el MISMO ISR que a los demas (tarifa - subsidio)
+#     desmarcada -> quien gana el minimo no paga ISR
+# Si el campo no existe se usa el parametro mx_jandea_isr_al_minimo.
+# --------------------------------------------------------------------------
+try:
+    _retener_min = bool(payslip.company_id["mx_jandea_isr_retener_minimo"])
+except Exception:
+    _retener_min = bool(_p("mx_jandea_isr_al_minimo", 1.0))
+isr_exento_minimo = bool(gana_minimo and not _retener_min)
+if isr_exento_minimo:
     _isr = 0.0
 if _isr < 0:
     _isr = 0.0
@@ -441,6 +572,18 @@ min_wage = (payslip._rule_parameter("l10n_mx_daily_min_wage") or 0.0) \\
 '''
 
 
+def _por_dia(var, dias):
+    """Cola de regla: importe por dia x dias (el importe ya incluye los dias,
+    asi que se divide para que cantidad x importe no los multiplique dos
+    veces)."""
+    return ('\nif %(d)s > 0:\n'
+            '    result = %(v)s / %(d)s\n'
+            '    result_qty = %(d)s\n'
+            'else:\n'
+            '    result = 0.0\n'
+            '    result_qty = 0.0\n') % {'v': var, 'd': dias}
+
+
 def _nomina_rules_spec():
     """Reglas de la nómina normal.
 
@@ -459,7 +602,8 @@ def _nomina_rules_spec():
          'PRIMA_DOM_EXE', 'EXE', 84, p + '\nresult = pd_exe\n'),
 
         ('rule_nom_festivo_exe', 'Festivo Laborado (Exento)',
-         'FESTIVO_LABORADO_EXE', 'EXE', 85, p + '\nresult = festivo_exe\n'),
+         'FESTIVO_LABORADO_EXE', 'EXE', 85,
+         p + _por_dia('festivo_exe', '_dias_fest')),
 
         ('rule_nom_he_doble_exe', 'Horas Extra Dobles (Exento)',
          'HRS_EXTRA_DOBLE_EXE', 'EXE', 86, p + '\nresult = he_doble_exe\n'),
@@ -468,9 +612,10 @@ def _nomina_rules_spec():
 
         ('rule_nom_descanso', 'Descanso Laborado (Gravado)',
          'DESCANSO_LABORADO', 'GRAV', 88,
-         p + '\nresult = descanso_grav\nresult_qty = _in("DIAS_DESCANSO", 0.0)\n'),
+         p + _por_dia('descanso_grav', '_dias_desc')),
         ('rule_nom_descanso_exe', 'Descanso Laborado (Exento)',
-         'DESCANSO_LABORADO_EXE', 'EXE', 89, p + '\nresult = descanso_exe\n'),
+         'DESCANSO_LABORADO_EXE', 'EXE', 89,
+         p + _por_dia('descanso_exe', '_dias_desc')),
 
         ('rule_nom_otras_perc', 'Otras Percepciones',
          'OTRAS_PERCEPCIONES', 'GRAV', 98, p + '\nresult = otras_perc\n'),
@@ -518,10 +663,10 @@ def _isr_rule_code():
     esperan las reglas nativas posteriores queden publicadas pase lo que pase.
     """
     return (NOM_PREAMBLE + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK + '''
-result = -_isr
+result = -round(_isr, 2) if _isr else 0.0
 if base_gravable <= 0:
     result = 0.0
-if gross <= min_wage:
+if isr_exento_minimo:
     result_qty = 0.0
 ''')
 
@@ -531,7 +676,14 @@ if gross <= min_wage:
 # ---------------------------------------------------------------------------
 
 def _resolve_categorias(env):
-    """(gravada, exenta, deduccion, informativa) de forma robusta."""
+    """(gravada, exenta, deduccion, informativa) de forma robusta.
+
+    EXENTA: categoría propia ``PERCEP_EXE`` HIJA de ``ALW``. La categoría
+    "Exemption" (MX_EXEMPTION) de l10n_mx es INFORMATIVA (no tiene padre, no
+    suma al neto: así la usa el aguinaldo nativo para reportar su parte
+    exenta). Con las partes exentas ahí, el fondo de ahorro y los vales no
+    entraban al NET pero sus deducciones sí, y el neto salía de menos.
+    """
     from odoo.addons.mx_jandea_reglas_mx.hooks import _get_category
     Cat = env['hr.salary.rule.category']
 
@@ -541,16 +693,11 @@ def _resolve_categorias(env):
         gravada = Cat.search([('code', '=', 'ALW')], limit=1) \
             or _get_category(env, 'ALW', 'Allowance')
 
-    exenta = env.ref('l10n_mx_hr_payroll.l10n_mx_category_exempt_alw',
-                     raise_if_not_found=False)
-    if not exenta:
-        exenta = Cat.search(['|', ('name', 'ilike', 'exent'),
-                             ('name', 'ilike', 'exempt')], limit=1)
-    if not exenta:
-        exenta = _get_category(env, 'PERCEP_EXE', 'Percepción Exenta (MX)')
-        _logger.warning(
-            '%s: no se encontró la categoría EXENTA de l10n_mx; se creó '
-            '"PERCEP_EXE". Verifica que no entre a la base de ISR.', MODULE)
+    alw = Cat.search([('code', '=', 'ALW')], limit=1) \
+        or _get_category(env, 'ALW', 'Allowance')
+    exenta = _get_category(env, 'PERCEP_EXE', 'Percepción Exenta (MX Jandea)')
+    if exenta.parent_id != alw:
+        exenta.parent_id = alw.id
 
     deduccion = Cat.search([('code', '=', 'DED')], limit=1) \
         or _get_category(env, 'DED', 'Deduction')
@@ -558,13 +705,38 @@ def _resolve_categorias(env):
     return gravada, exenta, deduccion, informativa
 
 
+def _structs_regulares(env):
+    """(estructura base, todas las estructuras de nómina normal MX).
+
+    Además de la nativa ``l10n_mx_regular_pay`` se incluyen sus copias
+    (código MX_REGULAR), p. ej. "Regular Pay (Sin fondo de ahorro y vales)"
+    o "Regular Pay sin ISR": así ninguna se queda con fórmulas viejas.
+    """
+    Struct = env['hr.payroll.structure'].with_context(active_test=False)
+    base = env.ref('l10n_mx_hr_payroll.l10n_mx_regular_pay',
+                   raise_if_not_found=False)
+    todas = Struct.browse()
+    if 'code' in Struct._fields:
+        todas = Struct.search([('code', '=', 'MX_REGULAR')])
+    if base:
+        todas |= base
+    return base, todas
+
+
 def _build_nomina_rules(env):
-    """Crea/actualiza las reglas de nómina normal sobre 'l10n_mx_regular_pay'."""
+    """Crea/actualiza las reglas de nómina normal.
+
+    * Las reglas que falten se CREAN solo en la estructura base.
+    * En TODAS las estructuras MX_REGULAR se reescribe la fórmula de las
+      reglas que ya existan con ese código (no se agregan a las copias:
+      p. ej. la estructura "sin fondo de ahorro y vales" no gana esas reglas).
+    """
     from odoo.addons.mx_jandea_reglas_mx.hooks import _link
 
-    struct = env.ref('l10n_mx_hr_payroll.l10n_mx_regular_pay',
-                     raise_if_not_found=False)
-    if not struct:
+    _ensure_params(env)
+
+    base, structs = _structs_regulares(env)
+    if not base:
         _logger.warning('%s: no se encontró l10n_mx_regular_pay; no se crearon '
                         'las reglas de nómina normal.', MODULE)
         return
@@ -573,7 +745,7 @@ def _build_nomina_rules(env):
     cats = {'GRAV': gravada, 'EXE': exenta, 'DED': deduccion,
             'INFO': informativa}
 
-    Rule = env['hr.salary.rule']
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
     InputType = env['hr.payslip.input.type']
     creadas = actualizadas = 0
 
@@ -581,60 +753,65 @@ def _build_nomina_rules(env):
         regla = env.ref('%s.%s' % (MODULE, xmlid), raise_if_not_found=False)
         if not regla:
             regla = Rule.search([('code', '=', code),
-                                 ('struct_id', '=', struct.id)], limit=1)
-        if regla:
-            if regla.amount_python_compute != python_code:
-                regla.amount_python_compute = python_code
+                                 ('struct_id', '=', base.id)], limit=1)
+        if not regla:
+            regla = Rule.create({
+                'name': name,
+                'code': code,
+                'category_id': cats[tipo].id,
+                'struct_id': base.id,
+                'sequence': seq,
+                'appears_on_payslip': True,
+                'condition_select': 'none',
+                'amount_select': 'code',
+                'amount_python_compute': python_code,
+            })
+            _link(env, xmlid, 'hr.salary.rule', regla.id)
+            creadas += 1
+
+        for r in Rule.search([('code', '=', code),
+                              ('struct_id', 'in', structs.ids)]):
+            vals = {}
+            if r.amount_select != 'code':
+                vals['amount_select'] = 'code'
+            if r.amount_python_compute != python_code:
+                vals['amount_python_compute'] = python_code
+            if tipo == 'EXE' and r.category_id != exenta:
+                vals['category_id'] = exenta.id
+            if vals:
+                r.write(vals)
                 actualizadas += 1
-            continue
-        vals = {
-            'name': name,
-            'code': code,
-            'category_id': cats[tipo].id,
-            'struct_id': struct.id,
-            'sequence': seq,
-            'appears_on_payslip': True,
-            'condition_select': 'none',
-            'amount_select': 'code',
-            'amount_python_compute': python_code,
-        }
-        regla = Rule.create(vals)
-        _link(env, xmlid, 'hr.salary.rule', regla.id)
-        creadas += 1
 
-    # Enlazar las entradas nuevas a la estructura de nómina normal.
+    # Entradas de la nómina normal en todas las estructuras.
     for it in InputType.search([('code', 'in', NOM_INPUT_CODES)]):
-        if struct not in it.struct_ids:
-            it.struct_ids = [(4, struct.id)]
+        faltan = structs - it.struct_ids
+        if faltan:
+            it.struct_ids = [(4, s.id) for s in faltan]
 
-    # Re-aplicar el preámbulo a las reglas de nómina que ya existían en XML
-    # (festivo, prima dominical, horas extra) para que usen el MISMO salario
-    # diario, la misma periodicidad y devuelvan solo la parte GRAVADA.
-    _patch_reglas_existentes(env, struct)
+    for struct in structs:
+        _patch_reglas_existentes(env, struct, exenta)
+        _patch_isr(env, struct)
+        _patch_subsidio(env, struct)
+        _patch_minimos(env, struct)
 
-    # ISR mensualizado sobre la base gravable.
-    _patch_isr(env, struct)
-
-    # Subsidio para el empleo: se resta dentro del ISR, las reglas nativas se
-    # neutralizan para no contarlo dos veces.
-    _patch_subsidio(env, struct)
+    _proteger_nativas(env, structs)
 
     # Aviso de traslape con reglas nativas.
     for code, nativa in NATIVAS_EQUIVALENTES.items():
         if Rule.search_count([('code', '=', nativa)]):
-            _logger.warning(
+            _logger.info(
                 '%s: existe la regla nativa %s equivalente a %s. Usa una u '
                 'otra: si se capturan las dos, el concepto se paga doble.',
                 MODULE, nativa, code)
 
-    _logger.info('%s: nómina normal — %s regla(s) creada(s), %s actualizada(s).',
-                 MODULE, creadas, actualizadas)
+    _logger.info('%s: nómina normal — %s regla(s) creada(s), %s '
+                 'actualizada(s) en %s estructura(s).',
+                 MODULE, creadas, actualizadas, len(structs))
 
 
 REGLAS_EXISTENTES = {
     # código -> expresión que devuelve la parte GRAVADA
-    'FESTIVO_LABORADO': ('result = festivo_grav\n'
-                         'result_qty = _in("DIAS_FESTIVO", 0.0)\n'),
+    'FESTIVO_LABORADO': _por_dia('festivo_grav', '_dias_fest'),
     'PRIMA_DOM': ('result = pd_grav\n'
                   'result_qty = _in("DOMINGOS_PRIMA_DOM", 0.0)\n'),
     'HRS_EXTRA_DOBLE': ('result = he_doble_grav\n'
@@ -648,39 +825,51 @@ REGLAS_EXISTENTES = {
 }
 
 
-def _patch_reglas_existentes(env, struct):
+# Reglas cuya parte va a la categoría EXENTA (suma al neto).
+EXENTAS_EXISTENTES = ('VALES_DESPENSA_EXENTO', 'FONDO_AHORRO_EXENTO')
+
+
+def _patch_reglas_existentes(env, struct, exenta=None):
     """Reescribe las fórmulas de las reglas de nómina que ya existían."""
-    Rule = env['hr.salary.rule']
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
     for code, expr in REGLAS_EXISTENTES.items():
         reglas = Rule.search([('code', '=', code),
                               ('struct_id', '=', struct.id)])
         nuevo = NOM_PREAMBLE + '\n' + expr
         for r in reglas:
+            vals = {}
+            if r.amount_select != 'code':
+                vals['amount_select'] = 'code'
             if r.amount_python_compute != nuevo:
-                r.amount_python_compute = nuevo
-            # FA y Vales dejan de depender de la entrada "Sueldo Neto (FA/VD)":
-            # ahora se calculan con el salario del contrato como el Excel.
+                vals['amount_python_compute'] = nuevo
+            # FA y Vales dejan de depender de la entrada "Sueldo Neto (FA/VD)".
             if code.startswith(('VALES_', 'FONDO_')) and \
                     r.condition_select == 'input':
-                r.condition_select = 'none'
+                vals['condition_select'] = 'none'
+            if exenta and code in EXENTAS_EXISTENTES and \
+                    r.category_id != exenta:
+                vals['category_id'] = exenta.id
+            if vals:
+                r.write(vals)
 
 
 def _patch_isr(env, struct):
     """Sustituye la fórmula de la regla ISR nativa por la mensualizada."""
-    Rule = env['hr.salary.rule']
-    isr = Rule.search([('code', '=', 'ISR'), ('struct_id', '=', struct.id)],
-                      limit=1)
-    if not isr:
-        isr = env.ref('l10n_mx_hr_payroll.l10n_mx_regular_pay_isr',
-                      raise_if_not_found=False)
-    if not isr:
-        _logger.warning('%s: no se encontró la regla ISR de nómina normal.',
-                        MODULE)
-        return
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
+    isr = Rule.search([('code', '=', 'ISR'), ('struct_id', '=', struct.id)])
     codigo = _isr_rule_code()
-    if isr.amount_python_compute != codigo:
-        isr.amount_python_compute = codigo
-        _logger.info('%s: regla ISR de nómina normal mensualizada.', MODULE)
+    for r in isr:
+        vals = {}
+        if r.amount_select != 'code':
+            vals['amount_select'] = 'code'
+        if r.condition_select != 'none':
+            vals['condition_select'] = 'none'
+        if r.amount_python_compute != codigo:
+            vals['amount_python_compute'] = codigo
+        if vals:
+            r.write(vals)
+            _logger.info('%s: regla ISR mensualizada en "%s".', MODULE,
+                         struct.name)
 
 
 # Reglas nativas de subsidio de l10n_mx. Con mx_jandea_isr_neto_subsidio = 1
@@ -702,7 +891,7 @@ result = 0.0
         cola = '''
 # El subsidio solo se paga aparte si NO se netea contra el ISR.
 result = 0.0
-if not _p("mx_jandea_isr_neto_subsidio", 1.0):
+if not _p("mx_jandea_isr_neto_subsidio", 1.0) and not isr_exento_minimo:
     result = subsidio if subsidio < _isr_bruto else _isr_bruto
 '''
     return (NOM_PREAMBLE + NOM_BASE_BLOCK + NOM_ISR_BLOCK + NOM_COMPAT_BLOCK
@@ -711,17 +900,148 @@ if not _p("mx_jandea_isr_neto_subsidio", 1.0):
 
 def _patch_subsidio(env, struct):
     """Neutraliza las reglas nativas de subsidio en la nómina normal."""
-    Rule = env['hr.salary.rule']
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
     for code in SUBSIDIO_NATIVAS:
-        reglas = Rule.search([('code', '=', code),
-                              ('struct_id', '=', struct.id)])
-        if not reglas:
-            continue
         codigo = _subsidio_rule_code(code == 'SUBSIDY')
-        for r in reglas:
-            if r.amount_python_compute != codigo:
-                r.amount_select = 'code'
-                r.condition_select = 'none'
-                r.amount_python_compute = codigo
-                _logger.info('%s: regla %s neutralizada (el subsidio se resta '
-                             'dentro del ISR).', MODULE, code)
+        for r in Rule.search([('code', '=', code),
+                              ('struct_id', '=', struct.id)]):
+            if r.amount_python_compute != codigo or \
+                    r.condition_select != 'none':
+                r.write({'amount_select': 'code',
+                         'condition_select': 'none',
+                         'amount_python_compute': codigo})
+                _logger.info('%s: regla %s neutralizada en "%s" (el subsidio '
+                             'se resta dentro del ISR).', MODULE, code,
+                             struct.name)
+
+
+# Reglas nativas ligadas al salario mínimo.
+ISR_MINIMO_CODE = '''
+# El ISR de quien gana el salario minimo ya lo decide la regla ISR segun la
+# casilla de la sucursal (Retener ISR aunque gane el salario minimo). Esta
+# regla nativa devolvia ese ISR y dejaba el recibo inconsistente: queda en 0.
+result = 0.0
+'''
+
+IMSS_TOTAL_CODE = '''
+# Cuota obrera IMSS total. Con GROSS = 0 (todas faltas) no hay base: 0.
+# Si gana el salario minimo el patron absorbe la cuota (LSS art. 36): la
+# linea se anula y la regla IMSS_MINIMUM_WAGE regresa el importe.
+try:
+    gross = categories["GROSS"] or 0.0
+except Exception:
+    gross = 0.0
+try:
+    _imss = categories["IMSS_EMPLOYEE"] or 0.0
+except Exception:
+    _imss = 0.0
+result = -_imss
+result_qty = 1.0
+if gross <= 0:
+    result = 0.0
+    result_qty = 0.0
+else:
+    try:
+        _sched_i = version.schedule_pay or "monthly"
+    except Exception:
+        _sched_i = "monthly"
+    _tbl_i = payslip._rule_parameter("l10n_mx_schedule_table") or {}
+    period_factor = _tbl_i.get(_sched_i, 30) or 30
+    if period_factor >= 15:
+        period_factor = (period_factor / 30) * (365 / 12)
+    min_wage = (payslip._rule_parameter("l10n_mx_daily_min_wage") or 0.0) \\
+        * period_factor
+    if gross <= min_wage:
+        result_qty = 0.0
+'''
+
+
+def _patch_minimos(env, struct):
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
+    for code, codigo in (('ISR_MINIMUM_WAGE', ISR_MINIMO_CODE),
+                         ('IMSS_EMPLOYEE_TOTAL', IMSS_TOTAL_CODE)):
+        for r in Rule.search([('code', '=', code),
+                              ('struct_id', '=', struct.id)]):
+            if r.amount_python_compute != codigo or r.amount_select != 'code':
+                r.write({'amount_select': 'code',
+                         'amount_python_compute': codigo})
+
+
+# Reglas NATIVAS de l10n_mx que este módulo reescribe. Al actualizar
+# l10n_mx_hr_payroll, Odoo las regresaba a su fórmula original (así se perdió
+# el ISR mensualizado y el subsidio volvió a salir aparte). Se marcan
+# noupdate para que la actualización de la localización ya no las toque.
+NATIVAS_PROTEGIDAS = ('ISR', 'SUBSIDY', 'SUBSIDY_CURRENT_MONTH',
+                      'SUBSIDY_NEXT_MONTH', 'ISR_MINIMUM_WAGE',
+                      'IMSS_EMPLOYEE_TOTAL')
+
+
+def _proteger_nativas(env, structs):
+    Rule = env['hr.salary.rule'].with_context(active_test=False)
+    reglas = Rule.search([('code', 'in', NATIVAS_PROTEGIDAS),
+                          ('struct_id', 'in', structs.ids)])
+    if not reglas:
+        return
+    imd = env['ir.model.data'].search([
+        ('model', '=', 'hr.salary.rule'),
+        ('res_id', 'in', reglas.ids),
+        ('noupdate', '=', False),
+    ])
+    if imd:
+        imd.write({'noupdate': True})
+        _logger.info('%s: %s regla(s) nativa(s) protegidas contra la '
+                     'actualización de l10n_mx.', MODULE, len(imd))
+
+
+# ---------------------------------------------------------------------------
+# Parámetros que se crean por código (no en XML): algunos ya existían en
+# bases donde se capturaron a mano, y crearlos por XML chocaría con el
+# código único del parámetro.
+# ---------------------------------------------------------------------------
+PARAMS_CODIGO = (
+    ('mx_jandea_vd_dia_desde',
+     'MX Jandea · Vales · Día mínimo del date_to (16=2a quincena; 0=apagado)',
+     '16.0'),
+    ('mx_jandea_fa_captura_asist',
+     'MX Jandea · Fondo de Ahorro · Proporcionar el importe capturado a la '
+     'asistencia (1/0)', '1.0'),
+    ('mx_jandea_isr_mensual_directo',
+     'MX Jandea · ISR · Nómina mensual con tarifa directa (1 = sí, 0 = '
+     'mensualizar a 30.4 como Aspel)', '0.0'),
+)
+
+# Valores que cambian de criterio en esta versión: (código, viejo, nuevo).
+PARAMS_CORRECCION = (
+    ('mx_jandea_te_pct_exento', 1.0, '0.5'),
+    ('mx_jandea_festivo_mult', 3.0, '2.0'),
+)
+
+
+def _ensure_params(env):
+    Param = env['hr.rule.parameter']
+    Value = env['hr.rule.parameter.value']
+    mx = env.ref('base.mx', raise_if_not_found=False)
+    for code, name, valor in PARAMS_CODIGO:
+        par = Param.search([('code', '=', code)], limit=1)
+        if not par:
+            vals = {'name': name, 'code': code}
+            if mx and 'country_id' in Param._fields:
+                vals['country_id'] = mx.id
+            par = Param.create(vals)
+        if not Value.search_count([('rule_parameter_id', '=', par.id)]):
+            Value.create({'rule_parameter_id': par.id,
+                          'date_from': '2020-01-01',
+                          'parameter_value': valor})
+    for code, viejo, nuevo in PARAMS_CORRECCION:
+        par = Param.search([('code', '=', code)], limit=1)
+        if not par:
+            continue
+        for v in Value.search([('rule_parameter_id', '=', par.id)]):
+            try:
+                actual = float(v.parameter_value)
+            except (TypeError, ValueError):
+                continue
+            if abs(actual - viejo) < 1e-9:
+                v.parameter_value = nuevo
+                _logger.info('%s: parámetro %s %s -> %s.', MODULE, code,
+                             viejo, nuevo)
