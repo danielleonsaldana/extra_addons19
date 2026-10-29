@@ -379,10 +379,25 @@ class ReportReciboNomina(models.AbstractModel):
         otras_perc = [i for i, r in enumerate(def_perc) if r[1] == '*'][0]
         otras_ded = [i for i, r in enumerate(def_ded) if r[1] == '*'][0]
 
-        for linea in payslip.line_ids:
+        lineas = [l for l in payslip.line_ids
+                  if l.total and self._raiz(l.category_id) in RAICES_NETO]
+        # Recibos calculados ANTES de la v1.27.0 de mx_jandea_reglas_mx: sus
+        # partes exentas (fondo de ahorro / vales) no sumaron al neto que se
+        # pagó y timbró. La categoría de la línea sigue a la regla, así que
+        # hoy ya caen en PERCEP_EXE; si sin ellas el total cuadra con la
+        # línea NET guardada, se dejan fuera para imprimir lo que se pagó.
+        neto_guardado = sum(l.total for l in payslip.line_ids
+                            if l.code == 'NET')
+        exentas = [l for l in lineas if l.category_id.code == 'PERCEP_EXE']
+        if exentas and any(l.code == 'NET' for l in payslip.line_ids):
+            con = sum(l.total for l in lineas)
+            sin = con - sum(l.total for l in exentas)
+            if abs(con - neto_guardado) > 0.05 and \
+                    abs(sin - neto_guardado) <= 0.05:
+                lineas = [l for l in lineas if l not in exentas]
+
+        for linea in lineas:
             raiz = self._raiz(linea.category_id)
-            if raiz not in RAICES_NETO or not linea.total:
-                continue
             i = self._renglon_de(linea, def_perc)
             if i is not None:
                 suma_perc[i] += linea.total
