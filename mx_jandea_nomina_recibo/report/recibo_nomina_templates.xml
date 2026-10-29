@@ -25,7 +25,7 @@
                                 <t t-if="d['es_finiquito']">RECIBO DE FINIQUITO</t>
                                 <t t-else="">RECIBO DE NÓMINA</t>
                             </div>
-                            <div><strong>Folio:</strong> <span t-field="o.number"/></div>
+                            <div t-if="d['folio']"><strong>Folio:</strong> <span t-esc="d['folio']"/></div>
                             <div t-if="d['periodicidad']">
                                 <strong>Periodicidad:</strong> <span t-esc="d['periodicidad']"/>
                             </div>
@@ -81,7 +81,7 @@
                                     </td>
                                     <td style="border:1px solid #333; padding:3px; text-align:right;">
                                         <span t-esc="p['importe']"
-                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                              t-options="{'widget': 'monetary', 'display_currency': d['moneda']}"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -90,7 +90,7 @@
                                     </td>
                                     <td style="border:1px solid #333; padding:4px; text-align:right; font-weight:bold;">
                                         <span t-esc="d['total_percepciones']"
-                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                              t-options="{'widget': 'monetary', 'display_currency': d['moneda']}"/>
                                     </td>
                                 </tr>
                             </tbody>
@@ -116,7 +116,7 @@
                                     </td>
                                     <td style="border:1px solid #333; padding:3px; text-align:right;">
                                         <span t-esc="dd['importe']"
-                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                              t-options="{'widget': 'monetary', 'display_currency': d['moneda']}"/>
                                     </td>
                                 </tr>
                                 <tr>
@@ -125,7 +125,7 @@
                                     </td>
                                     <td style="border:1px solid #333; padding:4px; text-align:right; font-weight:bold;">
                                         <span t-esc="d['total_deducciones']"
-                                              t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                              t-options="{'widget': 'monetary', 'display_currency': d['moneda']}"/>
                                     </td>
                                 </tr>
                             </tbody>
@@ -144,7 +144,7 @@
                         <div style="font-weight:bold;"><span t-esc="d['etiqueta_neto']"/></div>
                         <div style="font-size:14px; font-weight:bold;">
                             <span t-esc="d['neto']"
-                                  t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                  t-options="{'widget': 'monetary', 'display_currency': d['moneda']}"/>
                         </div>
                     </td>
                 </tr>

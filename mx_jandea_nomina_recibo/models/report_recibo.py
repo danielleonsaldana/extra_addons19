@@ -460,6 +460,12 @@ class ReportReciboNomina(models.AbstractModel):
                 payslip.company_id, 'l10n_mx_edi_employer_registration',
                 'company_registry'),
             'rfc_empresa': self._campo(payslip.company_id, 'vat'),
+            # En Odoo 19 hr.payslip ya no tiene "number": se toma el primer
+            # campo de folio que exista.
+            'folio': self._campo(payslip, 'number', 'l10n_mx_edi_cfdi_uuid',
+                                 'name') or '',
+            'moneda': self._campo(payslip, 'currency_id')
+            or payslip.company_id.currency_id,
         }
 
     @api.model
