@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'MX Jandea - Recibo de Nómina (PDF)',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.2.1',
     'summary': 'Recibo de nómina mexicano en español, con días completos del período',
     'description': """
 Reporte PDF de recibo de nómina con formato mexicano, en español.
@@ -42,6 +42,7 @@ Es un reporte independiente: el nativo sigue disponible por si se necesita.
     'data': [
         'report/recibo_nomina_templates.xml',
         'report/recibo_nomina_report.xml',
+        'views/hr_payslip_views.xml',
     ],
     'installable': True,
     'application': False,
