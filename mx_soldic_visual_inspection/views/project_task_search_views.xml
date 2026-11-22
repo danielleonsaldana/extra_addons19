@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_task_search_visual_inspection" model="ir.ui.view">
+        <field name="name">project.task.search.visual.inspection</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_search_form_base"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="vt_report_number" string="Folio VT"/>
+                <field name="vt_plan_number" string="No. de plano"/>
+            </field>
+            <filter name="unassigned" position="after">
+                <separator/>
+                <filter string="Con informe VT" name="vt_with_report" domain="[('vt_report_number', '!=', False)]"/>
+                <filter string="Reparaciones" name="vt_repairs" domain="[('vt_is_repair', '=', True)]"/>
+            </filter>
+        </field>
+    </record>
+</odoo>

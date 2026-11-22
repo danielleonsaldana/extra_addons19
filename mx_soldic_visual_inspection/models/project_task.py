@@ -147,7 +147,7 @@ class ProjectTask(models.Model):
             company = task.company_id or self.env.company
             code = company._vt_get_company_code()
             parts = ["VT"] + ([code] if code else []) + ["%02d" % task.vt_sequence_number]
-            task.vt_report_number = "%s_%s%s" % (
+            task.vt_report_number = "%s-%s%s" % (
                 "-".join(parts), task.vt_plan_number, "R" if task.vt_is_repair else "")
 
     # ---------------- Consecutivo por plano ----------------
@@ -192,13 +192,23 @@ class ProjectTask(models.Model):
         changed._vt_assign_sequence()
         return res
 
-    def action_vt_create_repair(self):
-        """Duplica la tarea como reparación: mismo plano, siguiente consecutivo y 'R' al final."""
+    def _vt_base_name(self):
+        """Nombre de la pieza sin folio ni sufijos de reparación previos."""
         self.ensure_one()
-        repair = self.copy({
-            "name": "%s (Reparación)" % self.name,
-            "vt_is_repair": True,
-        })
+        name = self.name or ""
+        if self.vt_report_number and name.startswith(self.vt_report_number):
+            name = name[len(self.vt_report_number):].lstrip(" -·")
+        while name.endswith("(Reparación)"):
+            name = name[: -len("(Reparación)")].rstrip()
+        return name.strip()
+
+    def action_vt_create_repair(self):
+        """Duplica la tarea como reparación: mismo plano, siguiente consecutivo y 'R' al final.
+        El nombre de la nueva tarea lleva el folio para encontrarla fácilmente."""
+        self.ensure_one()
+        base = self._vt_base_name()
+        repair = self.copy({"vt_is_repair": True})
+        repair.name = "%s - %s" % (repair.vt_report_number, base) if base else repair.vt_report_number
         repair.vt_line_ids.write({"result": "accepted"})
         return {
             "type": "ir.actions.act_window",
