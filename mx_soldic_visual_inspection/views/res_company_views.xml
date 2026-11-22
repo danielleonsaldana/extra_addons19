@@ -12,6 +12,9 @@
                             <field name="vt_logo" widget="image" options="{'size': [0, 80]}"/>
                             <field name="vt_accreditation_logo" widget="image" options="{'size': [0, 80]}"/>
                         </group>
+                        <group string="Folio del informe">
+                            <field name="vt_company_code" placeholder="JT (vacío = ID de la empresa)"/>
+                        </group>
                         <group string="Encabezado">
                             <field name="vt_report_title"/>
                             <field name="vt_header_address"/>

@@ -14,16 +14,26 @@
                             <h3 class="mb-0">Informe Final de Ensayo · Inspección Visual</h3>
                             <span class="text-muted">Formato JT-VT-01-F01</span>
                         </div>
-                        <button name="action_print_visual_inspection" type="object"
-                                string="Imprimir informe" icon="fa-print" class="btn-primary"/>
+                        <div class="d-flex gap-2">
+                            <button name="action_vt_create_repair" type="object"
+                                    string="Crear reparación" icon="fa-wrench" class="btn-secondary"
+                                    invisible="not vt_plan_number"
+                                    confirm="Se creará una copia de esta tarea como reparación con el siguiente consecutivo del plano. ¿Continuar?"/>
+                            <button name="action_print_visual_inspection" type="object"
+                                    string="Imprimir informe" icon="fa-print" class="btn-primary"/>
+                        </div>
                     </div>
 
                     <group string="Datos del informe" name="vt_report">
                         <group>
-                            <field name="vt_report_number" placeholder="VT-JT-01_ECM-T-1-5"/>
+                            <field name="vt_plan_number" placeholder="ECM-T-25"/>
+                            <field name="vt_is_repair" widget="boolean_toggle"/>
+                            <field name="vt_issue_date"/>
                         </group>
                         <group>
-                            <field name="vt_issue_date"/>
+                            <field name="vt_report_number" class="fw-bold fs-5"
+                                   placeholder="Se genera al capturar el No. de plano"/>
+                            <field name="vt_sequence_number" invisible="not vt_sequence_number"/>
                         </group>
                     </group>
 

@@ -13,7 +13,22 @@ class ProjectTask(models.Model):
     vt_enabled = fields.Boolean(related="project_id.vt_enabled", string="Usa Inspección Visual")
 
     # ---------------- Datos del informe ----------------
-    vt_report_number = fields.Char(string="Informe No.", tracking=True, copy=False)
+    vt_plan_number = fields.Char(
+        string="No. de plano", tracking=True, copy=True,
+        help="Número de plano del cliente (ej. ECM-T-25). Se captura manualmente.",
+    )
+    vt_is_repair = fields.Boolean(
+        string="Reparación", tracking=True, copy=False,
+        help="Marca el informe como reparación: agrega una 'R' al final del folio.",
+    )
+    vt_sequence_number = fields.Integer(
+        string="Consecutivo", copy=False, readonly=True,
+        help="Consecutivo del informe por número de plano dentro de la empresa.",
+    )
+    vt_report_number = fields.Char(
+        string="Informe No.", tracking=True, copy=False,
+        compute="_compute_vt_report_number", store=True, readonly=True,
+    )
     vt_issue_date = fields.Date(string="Fecha de emisión", default=fields.Date.context_today, copy=False)
 
     # ---------------- Datos del cliente ----------------
@@ -121,6 +136,77 @@ class ProjectTask(models.Model):
                 ] if p
             )
             task.vt_client_phone = partner.phone or commercial.phone or False
+
+    @api.depends("vt_plan_number", "vt_sequence_number", "vt_is_repair")
+    def _compute_vt_report_number(self):
+        for task in self:
+            if not task.vt_plan_number or not task.vt_sequence_number:
+                # sin plano no hay folio automático: se conserva lo que tuviera
+                task.vt_report_number = task.vt_report_number
+                continue
+            company = task.company_id or self.env.company
+            code = company._vt_get_company_code()
+            parts = ["VT"] + ([code] if code else []) + ["%02d" % task.vt_sequence_number]
+            task.vt_report_number = "%s_%s%s" % (
+                "-".join(parts), task.vt_plan_number, "R" if task.vt_is_repair else "")
+
+    # ---------------- Consecutivo por plano ----------------
+    @api.model
+    def _vt_normalize_plan(self, plan):
+        return (plan or "").strip().upper() or False
+
+    def _vt_assign_sequence(self):
+        """Asigna el siguiente consecutivo para el número de plano en la empresa."""
+        Task = self.sudo().with_context(active_test=False)
+        for task in self:
+            if not task.vt_plan_number:
+                task.with_context(vt_skip_sequence=True).vt_sequence_number = 0
+                continue
+            others = Task.search([
+                ("id", "!=", task.id),
+                ("company_id", "=", task.company_id.id),
+                ("vt_plan_number", "=", task.vt_plan_number),
+                ("vt_sequence_number", ">", 0),
+            ])
+            last = max(others.mapped("vt_sequence_number") or [0])
+            task.with_context(vt_skip_sequence=True).vt_sequence_number = last + 1
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("vt_plan_number"):
+                vals["vt_plan_number"] = self._vt_normalize_plan(vals["vt_plan_number"])
+        tasks = super().create(vals_list)
+        tasks.filtered(lambda t: t.vt_plan_number and not t.vt_sequence_number)._vt_assign_sequence()
+        return tasks
+
+    def write(self, vals):
+        if "vt_plan_number" in vals:
+            vals["vt_plan_number"] = self._vt_normalize_plan(vals["vt_plan_number"])
+        if self.env.context.get("vt_skip_sequence") or not ({"vt_plan_number", "company_id"} & set(vals)):
+            return super().write(vals)
+        old = {t.id: (t.vt_plan_number, t.company_id.id) for t in self}
+        res = super().write(vals)
+        changed = self.filtered(
+            lambda t: (t.vt_plan_number, t.company_id.id) != old[t.id] or (t.vt_plan_number and not t.vt_sequence_number))
+        changed._vt_assign_sequence()
+        return res
+
+    def action_vt_create_repair(self):
+        """Duplica la tarea como reparación: mismo plano, siguiente consecutivo y 'R' al final."""
+        self.ensure_one()
+        repair = self.copy({
+            "name": "%s (Reparación)" % self.name,
+            "vt_is_repair": True,
+        })
+        repair.vt_line_ids.write({"result": "accepted"})
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "project.task",
+            "res_id": repair.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     @api.depends("vt_line_ids.dimension")
     def _compute_vt_total_length(self):

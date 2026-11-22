@@ -41,4 +41,13 @@ class ResCompany(models.Model):
     vt_format_revision = fields.Char(string="Emisión No.", default="04")
     vt_format_date = fields.Char(string="Fecha de emisión del formato", default="Mar-2026")
     vt_format_code = fields.Char(string="Codificación del formato", default="JT-VT-01-F01")
+    vt_company_code = fields.Char(
+        string="Clave de empresa (folio)",
+        help="Clave que va en el folio del informe: VT-<clave>-01_<plano>. "
+             "Si se deja vacía se usa el 'ID de la empresa'.",
+    )
+
+    def _vt_get_company_code(self):
+        self.ensure_one()
+        return (self.vt_company_code or self.company_registry or "").strip().upper()
     vt_legend = fields.Text(string="Leyendas al pie", default=DEFAULT_LEGEND)

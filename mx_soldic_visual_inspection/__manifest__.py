@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Proyecto - Inspección Visual (VT)",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "summary": "Informe final de ensayo de Inspección Visual (VT) en tareas de proyecto, con PDF imprimible",
     "description": """
 Agrega a las tareas de Proyecto una pestaña "Inspección Visual" con todos los
