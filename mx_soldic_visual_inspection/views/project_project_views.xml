@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="edit_project_visual_inspection" model="ir.ui.view">
+        <field name="name">project.project.form.visual.inspection</field>
+        <field name="model">project.project</field>
+        <field name="inherit_id" ref="project.edit_project"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Inspección Visual" name="visual_inspection_settings">
+                    <group>
+                        <field name="vt_enabled" string="Usar Inspección Visual en tareas" widget="boolean_toggle"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

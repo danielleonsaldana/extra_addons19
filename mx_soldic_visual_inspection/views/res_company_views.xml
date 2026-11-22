@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_company_form_visual_inspection" model="ir.ui.view">
+        <field name="name">res.company.form.visual.inspection</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Formato Inspección Visual" name="visual_inspection_format">
+                    <group>
+                        <group string="Logos">
+                            <field name="vt_logo" widget="image" options="{'size': [0, 80]}"/>
+                            <field name="vt_accreditation_logo" widget="image" options="{'size': [0, 80]}"/>
+                        </group>
+                        <group string="Encabezado">
+                            <field name="vt_report_title"/>
+                            <field name="vt_header_address"/>
+                            <field name="vt_header_contact"/>
+                            <field name="vt_format_revision"/>
+                            <field name="vt_format_date"/>
+                            <field name="vt_format_code"/>
+                        </group>
+                    </group>
+                    <group string="Leyendas al pie">
+                        <field name="vt_legend" nolabel="1" colspan="2"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

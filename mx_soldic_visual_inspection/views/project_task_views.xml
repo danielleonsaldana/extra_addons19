@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_task_form_visual_inspection" model="ir.ui.view">
+        <field name="name">project.task.form.visual.inspection</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Inspección Visual" name="visual_inspection_page" invisible="not vt_enabled">
+                    <field name="vt_enabled" invisible="1"/>
+
+                    <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                        <div>
+                            <h3 class="mb-0">Informe Final de Ensayo · Inspección Visual</h3>
+                            <span class="text-muted">Formato JT-VT-01-F01</span>
+                        </div>
+                        <button name="action_print_visual_inspection" type="object"
+                                string="Imprimir informe" icon="fa-print" class="btn-primary"/>
+                    </div>
+
+                    <group string="Datos del informe" name="vt_report">
+                        <group>
+                            <field name="vt_report_number" placeholder="VT-JT-01_ECM-T-1-5"/>
+                        </group>
+                        <group>
+                            <field name="vt_issue_date"/>
+                        </group>
+                    </group>
+
+                    <group string="Datos del cliente" name="vt_client">
+                        <group>
+                            <field name="vt_partner_id" string="Cliente"/>
+                            <field name="vt_client_name"/>
+                            <field name="vt_client_address"/>
+                        </group>
+                        <group>
+                            <field name="vt_client_contact" placeholder="------"/>
+                            <field name="vt_client_phone" placeholder="------"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="vt_work_location" placeholder="Obra o ubicación de servicio..."/>
+                    </group>
+
+                    <group string="Datos de la pieza" name="vt_piece">
+                        <group>
+                            <field name="vt_piece_identification" placeholder="ECM-T-1 PIEZA 5"/>
+                            <field name="vt_piece_dimensions" placeholder="Total de longitud inspeccionada"/>
+                            <field name="vt_piece_mark" placeholder="Igual a la identificación"/>
+                            <field name="vt_welding_process"/>
+                        </group>
+                        <group>
+                            <field name="vt_material_type" placeholder="A572 GR 50, A500 GR C"/>
+                            <field name="vt_surface_finish"/>
+                            <field name="vt_joint_type" placeholder="JUNTA DE PENETRACION PARCIAL"/>
+                        </group>
+                    </group>
+
+                    <group string="Información de inspección" name="vt_inspection">
+                        <group>
+                            <field name="vt_procedure"/>
+                            <field name="vt_inspection_stage"/>
+                            <field name="vt_inspected_zone" widget="percentage"/>
+                        </group>
+                        <group>
+                            <field name="vt_reference_standard"/>
+                            <field name="vt_acceptance_criteria"/>
+                            <field name="vt_lighting"/>
+                        </group>
+                    </group>
+
+                    <group string="Equipo de medición utilizado" name="vt_equipment">
+                        <group>
+                            <field name="vt_equipment_serial" string="Serie" placeholder="LDC-VER-001"/>
+                        </group>
+                        <group>
+                            <field name="vt_equipment_model" string="Modelo" placeholder="STAINLESS HARDENED"/>
+                        </group>
+                    </group>
+
+                    <separator string="Resultados"/>
+                    <group>
+                        <field name="vt_results_title" placeholder="COLUMNA ECM-T-1 PIEZA 5 (vacío = identificación)"/>
+                    </group>
+                    <field name="vt_line_ids" nolabel="1">
+                        <list editable="bottom" decoration-danger="result == 'rejected'">
+                            <field name="sequence" widget="handle"/>
+                            <field name="joint"/>
+                            <field name="description"/>
+                            <field name="welder" optional="hide"/>
+                            <field name="indication"/>
+                            <field name="dimension" sum="Total"/>
+                            <field name="result" widget="badge"
+                                   decoration-success="result == 'accepted'"
+                                   decoration-danger="result == 'rejected'"/>
+                        </list>
+                    </field>
+
+                    <group string="Croquis de ubicación" name="vt_sketch">
+                        <field name="vt_sketch_image" widget="image" nolabel="1" colspan="2"
+                               options="{'size': [0, 320]}"/>
+                    </group>
+
+                    <group string="Observaciones" name="vt_obs">
+                        <field name="vt_observations" nolabel="1" colspan="2"/>
+                    </group>
+
+                    <separator string="Firmas"/>
+                    <div class="row g-3">
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header fw-bold text-center">Realizó</div>
+                                <div class="card-body">
+                                    <label for="vt_technician_name" string="Nombre del técnico"/>
+                                    <field name="vt_technician_name"/>
+                                    <label for="vt_technician_date" string="Fecha"/>
+                                    <field name="vt_technician_date" placeholder="Vacío = fecha de emisión"/>
+                                    <label for="vt_technician_signature" string="Firma"/>
+                                    <field name="vt_technician_signature" widget="signature"
+                                           options="{'full_name': 'vt_technician_name', 'size': [0, 90]}"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header fw-bold text-center">Revisó y Aprobó</div>
+                                <div class="card-body">
+                                    <label for="vt_signatory_name" string="Nombre del signatario"/>
+                                    <field name="vt_signatory_name"/>
+                                    <label for="vt_signatory_date" string="Fecha"/>
+                                    <field name="vt_signatory_date" placeholder="Vacío = fecha de emisión"/>
+                                    <label for="vt_signatory_signature" string="Firma"/>
+                                    <field name="vt_signatory_signature" widget="signature"
+                                           options="{'full_name': 'vt_signatory_name', 'size': [0, 90]}"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-header fw-bold text-center">Cliente</div>
+                                <div class="card-body">
+                                    <label for="vt_customer_sign_name" string="Nombre"/>
+                                    <field name="vt_customer_sign_name"/>
+                                    <label for="vt_customer_date" string="Fecha"/>
+                                    <field name="vt_customer_date" placeholder="Vacío = fecha de emisión"/>
+                                    <label for="vt_customer_signature" string="Firma"/>
+                                    <field name="vt_customer_signature" widget="signature"
+                                           options="{'full_name': 'vt_customer_sign_name', 'size': [0, 90]}"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

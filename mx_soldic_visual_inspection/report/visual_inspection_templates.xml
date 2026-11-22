@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================
+         Estilos del formato (réplica de JT-VT-01-F01 en Excel)
+         ============================================================ -->
+    <template id="report_visual_inspection_styles">
+        <style>
+            .vt-page { font-family: Arial, Helvetica, sans-serif; color: #000; font-size: 9.5px; }
+            .vt-break { page-break-after: always; }
+            .vt-sheet { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #000; }
+            .vt-sheet td { padding: 1px 3px; vertical-align: middle; line-height: 1.15; overflow: hidden; word-wrap: break-word; }
+            .vt-b { border: 1px solid #000; }
+            .vt-bb { border-bottom: 1px solid #000; }
+            .vt-bt { border-top: 1px solid #000; }
+            .vt-c { text-align: center; }
+            .vt-r { text-align: right; }
+            .vt-l { text-align: left; }
+            .vt-bold { font-weight: bold; }
+            .vt-bar td { background-color: #1F3864; color: #fff; font-weight: bold; text-align: center;
+                         font-size: 10.5px; border: 1px solid #000; padding: 2px; }
+            .vt-label { font-weight: bold; text-align: left; }
+            .vt-row td { height: 16px; }
+            .vt-row-tall td { height: 34px; }
+            .vt-res td { height: 27px; border: 1px solid #000; text-align: center; font-size: 9px; }
+            .vt-res-head td { border: 1px solid #000; text-align: center; font-weight: bold; height: 18px; }
+            .vt-title { font-size: 11px; font-weight: bold; text-align: center; white-space: pre-line; }
+            .vt-addr { font-size: 9.5px; font-weight: bold; text-align: center; }
+            .vt-addr a, .vt-addr span.vt-mail { color: #0000FF; text-decoration: underline; }
+            .vt-head-small { font-size: 9px; text-align: center; border: 1px solid #000; }
+            .vt-logo { max-height: 78px; max-width: 100%; }
+            .vt-acc-logo { max-height: 52px; max-width: 100%; }
+            .vt-obs-label { background-color: #1F3864; color: #fff; font-weight: bold; }
+            .vt-sign-head td { font-weight: bold; text-align: center; height: 20px; }
+            .vt-sign td { height: 16px; }
+            .vt-sign-line { border-bottom: 1px solid #000; text-align: center; }
+            .vt-sign-img { max-height: 34px; max-width: 100%; }
+            .vt-legend td { font-size: 7px; text-align: left; border-top: 1px solid #000; padding: 3px; white-space: pre-line; }
+            .vt-sketch-box { height: 500px; text-align: center; vertical-align: middle; border: 1px solid #000; }
+            .vt-sketch-img { max-height: 490px; max-width: 100%; }
+            .vt-dash { color: #000; }
+        </style>
+    </template>
+
+    <!-- ============================================================
+         Encabezado + datos generales (se repite en cada hoja)
+         ============================================================ -->
+    <template id="report_visual_inspection_header">
+        <t t-set="company" t-value="o.company_id or env.company"/>
+        <colgroup>
+            <col style="width: 13%"/>
+            <col style="width: 16%"/>
+            <col style="width: 8%"/>
+            <col style="width: 15%"/>
+            <col style="width: 7%"/>
+            <col style="width: 7%"/>
+            <col style="width: 12%"/>
+            <col style="width: 11%"/>
+            <col style="width: 11%"/>
+        </colgroup>
+        <!-- Encabezado -->
+        <tr>
+            <td colspan="2" rowspan="3" class="vt-b vt-c">
+                <img t-att-src="image_data_uri(o._vt_report_logo())" class="vt-logo"/>
+            </td>
+            <td colspan="5" rowspan="2" class="vt-b vt-title" style="height: 54px;">
+                <t t-out="company.vt_report_title or 'INFORME FINAL DE ENSAYO\nINSPECCIÓN VISUAL'"/>
+            </td>
+            <td colspan="2" class="vt-b vt-c" style="height: 54px;">
+                <img t-att-src="image_data_uri(o._vt_report_accreditation_logo())" class="vt-acc-logo"/>
+            </td>
+        </tr>
+        <tr>
+            <td class="vt-head-small" style="height: 16px;"><b>EMISIÓN No:</b> <t t-out="company.vt_format_revision"/></td>
+            <td class="vt-head-small"><b>PÁG.</b> <t t-out="page['number']"/> de <t t-out="page['total']"/></td>
+        </tr>
+        <tr>
+            <td colspan="5" class="vt-b vt-addr" style="height: 28px;">
+                <t t-out="company.vt_header_address"/><br/>
+                <t t-if="company.vt_header_contact">Contacto: <span class="vt-mail" t-out="company.vt_header_contact"/></t>
+            </td>
+            <td class="vt-head-small"><b>FECHA DE EMISIÓN:</b><br/><t t-out="company.vt_format_date"/></td>
+            <td class="vt-head-small"><b>CODIFICACIÓN:</b><br/><t t-out="company.vt_format_code"/></td>
+        </tr>
+
+        <!-- Datos del informe -->
+        <tr class="vt-bar"><td colspan="9">DATOS DEL INFORME</td></tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Informe No.</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_report_number or ''"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label">Fecha de Emisión:</td>
+            <td colspan="7" class="vt-c" t-out="o._vt_fmt_date(o.vt_issue_date)"/>
+        </tr>
+
+        <!-- Datos del cliente -->
+        <tr class="vt-bar"><td colspan="9">DATOS DEL CLIENTE</td></tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Nombre o Razón Social:</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_client_name or '------'"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Dirección:</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_client_address or '------'"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Persona de Contacto:</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_client_contact or '------'"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Teléfono:</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_client_phone or '------'"/>
+        </tr>
+        <tr class="vt-row-tall">
+            <td colspan="2" class="vt-label">Obra o Ubicación de servicio:</td>
+            <td colspan="7" class="vt-c" t-out="o.vt_work_location or '------'"/>
+        </tr>
+
+        <!-- Datos de la pieza -->
+        <tr class="vt-bar"><td colspan="9">DATOS DE LA PIEZA</td></tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Identificación:</td>
+            <td colspan="7" class="vt-c vt-bb" t-out="o.vt_piece_identification or ''"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Dimensiones (mm):</td>
+            <td colspan="2" class="vt-c vt-bb" t-out="o.vt_piece_dimensions or o._vt_fmt_number(o.vt_total_length)"/>
+            <td colspan="2" class="vt-label vt-bb">Tipo de Material:</td>
+            <td colspan="3" class="vt-c vt-bb" t-out="o.vt_material_type or ''"/>
+        </tr>
+        <tr class="vt-row-tall">
+            <td colspan="2" class="vt-label vt-bb">Marca:</td>
+            <td colspan="2" class="vt-c vt-bb" t-out="o.vt_piece_mark or o.vt_piece_identification or ''"/>
+            <td colspan="2" class="vt-label vt-bb">Acabado superficial:</td>
+            <td colspan="3" class="vt-c vt-bb" t-out="o.vt_surface_finish or ''"/>
+        </tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label">Proceso de Soldadura:</td>
+            <td colspan="2" class="vt-c" t-out="o.vt_welding_process or ''"/>
+            <td colspan="2" class="vt-label">Tipo de junta AWS:</td>
+            <td colspan="3" class="vt-c" t-out="o.vt_joint_type or ''"/>
+        </tr>
+
+        <!-- Información de inspección -->
+        <tr class="vt-bar"><td colspan="9">INFORMACIÓN DE INSPECCIÓN</td></tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label vt-bb">Procedimiento:</td>
+            <td colspan="2" class="vt-c vt-bb" t-out="o.vt_procedure or ''"/>
+            <td colspan="2" class="vt-label vt-bb">Norma de Referencia:</td>
+            <td colspan="3" class="vt-l vt-bb" t-out="o.vt_reference_standard or ''"/>
+        </tr>
+        <tr class="vt-row-tall">
+            <td colspan="2" class="vt-label vt-bb">Etapa de la Inspección:</td>
+            <td colspan="2" class="vt-c vt-bb" t-out="dict(o._fields['vt_inspection_stage'].selection).get(o.vt_inspection_stage, '')"/>
+            <td colspan="2" class="vt-label vt-bb">Criterio de aceptación:</td>
+            <td colspan="3" class="vt-l vt-bb" t-out="o.vt_acceptance_criteria or ''"/>
+        </tr>
+        <tr class="vt-row-tall">
+            <td colspan="2" class="vt-label">Zona Inspeccionada:</td>
+            <td colspan="2" class="vt-c" t-out="str(round((o.vt_inspected_zone or 0.0) * 100)) + '%'"/>
+            <td colspan="2" class="vt-label">Iluminación:</td>
+            <td colspan="3" class="vt-c" t-out="o.vt_lighting or ''"/>
+        </tr>
+
+        <!-- Equipo de medición -->
+        <tr class="vt-bar"><td colspan="9">EQUIPO DE MEDICIÓN UTILIZADO</td></tr>
+        <tr class="vt-row">
+            <td colspan="2" class="vt-label">Serie: <t t-out="o.vt_equipment_serial or ''"/></td>
+            <td colspan="4" class="vt-label">Modelo: <t t-out="o.vt_equipment_model or ''"/></td>
+            <td colspan="3"/>
+        </tr>
+    </template>
+
+    <!-- ============================================================
+         Pie: observaciones, firmas y leyendas
+         ============================================================ -->
+    <template id="report_visual_inspection_footer">
+        <t t-set="issue" t-value="o._vt_fmt_date(o.vt_issue_date)"/>
+        <tr class="vt-row">
+            <td class="vt-obs-label vt-b">Observaciones:</td>
+            <td colspan="8" class="vt-c vt-bold vt-b" t-out="o.vt_observations or 'SIN OBSERVACIONES'"/>
+        </tr>
+        <tr class="vt-sign-head">
+            <td colspan="2">Realizó</td>
+            <td/>
+            <td colspan="2">Revisó y Aprobó</td>
+            <td colspan="2"/>
+            <td colspan="2">Cliente</td>
+        </tr>
+        <tr class="vt-sign">
+            <td>Nombre del Técnico:</td>
+            <td class="vt-sign-line" t-out="o.vt_technician_name or ''"/>
+            <td/>
+            <td>Nombre del Signatario:</td>
+            <td colspan="2" class="vt-sign-line" t-out="o.vt_signatory_name or ''"/>
+            <td/>
+            <td>Nombre:</td>
+            <td class="vt-sign-line" t-out="o.vt_customer_sign_name or ''"/>
+        </tr>
+        <tr class="vt-sign" style="height: 36px;">
+            <td>Firma del Técnico:</td>
+            <td class="vt-sign-line">
+                <img t-if="o.vt_technician_signature" t-att-src="image_data_uri(o.vt_technician_signature)" class="vt-sign-img"/>
+            </td>
+            <td/>
+            <td>Firma del Signatario:</td>
+            <td colspan="2" class="vt-sign-line">
+                <img t-if="o.vt_signatory_signature" t-att-src="image_data_uri(o.vt_signatory_signature)" class="vt-sign-img"/>
+            </td>
+            <td/>
+            <td>Firma:</td>
+            <td class="vt-sign-line">
+                <img t-if="o.vt_customer_signature" t-att-src="image_data_uri(o.vt_customer_signature)" class="vt-sign-img"/>
+            </td>
+        </tr>
+        <tr class="vt-sign">
+            <td>Fecha:</td>
+            <td class="vt-sign-line" t-out="o._vt_fmt_date(o.vt_technician_date) or issue"/>
+            <td/>
+            <td>Fecha:</td>
+            <td colspan="2" class="vt-sign-line" t-out="o._vt_fmt_date(o.vt_signatory_date) or issue"/>
+            <td/>
+            <td>Fecha:</td>
+            <td class="vt-sign-line vt-r" t-out="o._vt_fmt_date(o.vt_customer_date) or issue"/>
+        </tr>
+        <tr class="vt-legend">
+            <td colspan="9" t-out="(o.company_id or env.company).vt_legend or ''"/>
+        </tr>
+    </template>
+
+    <!-- ============================================================
+         Documento
+         ============================================================ -->
+    <template id="report_visual_inspection_document">
+        <div class="article" t-att-data-oe-model="o._name" t-att-data-oe-id="o.id" t-att-data-oe-lang="o.env.context.get('lang')">
+            <t t-call="mx_soldic_visual_inspection.report_visual_inspection_styles"/>
+            <t t-set="pages" t-value="o._vt_report_pages()"/>
+            <t t-foreach="pages" t-as="page">
+                <div t-attf-class="vt-page #{'' if page_last else 'vt-break'}">
+                    <table class="vt-sheet">
+                        <t t-call="mx_soldic_visual_inspection.report_visual_inspection_header"/>
+
+                        <!-- ===== Hoja de resultados ===== -->
+                        <t t-if="page['type'] == 'results'">
+                            <tr class="vt-bar"><td colspan="9">RESULTADO</td></tr>
+                            <tr class="vt-res-head">
+                                <td colspan="2">Identificación</td>
+                                <td colspan="2">Indicación (mm)</td>
+                                <td colspan="2">Dimensiones (mm)</td>
+                                <td colspan="3">Resultado</td>
+                            </tr>
+                            <tr class="vt-res-head">
+                                <td>Junta</td>
+                                <td>Descripción</td>
+                                <td colspan="7" t-out="o.vt_results_title or o.vt_piece_identification or ''"/>
+                            </tr>
+                            <tr t-foreach="page['lines']" t-as="line" class="vt-res">
+                                <td t-out="line.joint"/>
+                                <td>
+                                    <t t-out="line.description or ''"/>
+                                    <t t-if="line.welder"><br/><span style="font-size: 7.5px;">Soldador: <t t-out="line.welder"/></span></t>
+                                </td>
+                                <td colspan="2" t-out="line.indication or '-----'"/>
+                                <td colspan="2" t-out="o._vt_fmt_number(line.dimension)"/>
+                                <td colspan="3" t-out="dict(line._fields['result'].selection).get(line.result, '')"/>
+                            </tr>
+                            <tr t-foreach="range(page['blank_rows'])" t-as="blank" class="vt-res">
+                                <td/><td/><td colspan="2"/><td colspan="2"/><td colspan="3"/>
+                            </tr>
+                            <tr class="vt-res">
+                                <td colspan="4" class="vt-r vt-bold">
+                                    <t t-if="page['is_last_results']">Total de Longitud Inspeccionada:</t>
+                                    <t t-else="">Continúa en la siguiente hoja</t>
+                                </td>
+                                <td colspan="2" class="vt-bold">
+                                    <t t-if="page['is_last_results']" t-out="o._vt_fmt_number(o.vt_total_length)"/>
+                                </td>
+                                <td colspan="3">----</td>
+                            </tr>
+                        </t>
+
+                        <!-- ===== Hoja de croquis ===== -->
+                        <t t-if="page['type'] == 'sketch'">
+                            <tr class="vt-bar"><td colspan="9">CROQUIS DE UBICACIÓN</td></tr>
+                            <tr>
+                                <td colspan="9" class="vt-sketch-box">
+                                    <img t-att-src="image_data_uri(o.vt_sketch_image)" class="vt-sketch-img"/>
+                                </td>
+                            </tr>
+                        </t>
+
+                        <t t-call="mx_soldic_visual_inspection.report_visual_inspection_footer"/>
+                    </table>
+                </div>
+            </t>
+        </div>
+    </template>
+
+    <template id="report_visual_inspection">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="mx_soldic_visual_inspection.report_visual_inspection_document"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>

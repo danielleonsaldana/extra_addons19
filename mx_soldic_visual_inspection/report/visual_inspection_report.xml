@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_visual_inspection" model="ir.actions.report">
+        <field name="name">Informe de Inspección Visual</field>
+        <field name="model">project.task</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">mx_soldic_visual_inspection.report_visual_inspection</field>
+        <field name="report_file">mx_soldic_visual_inspection.report_visual_inspection</field>
+        <field name="print_report_name">'Inspeccion Visual - %s' % (object.vt_report_number or object.name)</field>
+        <field name="paperformat_id" ref="paperformat_visual_inspection"/>
+        <field name="binding_model_id" ref="project.model_project_task"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>
