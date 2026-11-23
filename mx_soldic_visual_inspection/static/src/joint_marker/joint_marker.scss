@@ -1,0 +1,90 @@
+.o_vt_marker {
+    background-color: $o-view-background-color;
+    min-height: 0;
+    overflow: hidden;
+
+    .o_vt_topbar,
+    .o_vt_bottombar,
+    .o_vt_tabs {
+        flex: 0 0 auto;
+    }
+    .o_vt_tabs {
+        overflow-x: auto;
+    }
+    .o_vt_bottombar .btn {
+        min-height: 44px; // objetivo táctil cómodo
+    }
+    .o_vt_save {
+        min-height: 44px;
+        min-width: 110px;
+    }
+    .o_vt_scroll {
+        overflow: auto;
+        min-height: 0;
+        background: #6b7280;
+        -webkit-overflow-scrolling: touch;
+    }
+    .o_vt_inner {
+        position: relative;
+        margin: 0 auto;
+        background: #fff;
+    }
+    .o_vt_img {
+        display: block;
+        width: 100%;
+        height: auto;
+        user-select: none;
+        -webkit-user-select: none;
+        pointer-events: none;
+    }
+    .o_vt_svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+        touch-action: manipulation;
+    }
+    .o_vt_line {
+        stroke: #1f5fd6;
+        stroke-linecap: round;
+    }
+    .o_vt_head {
+        fill: #1f5fd6;
+    }
+    .o_vt_label {
+        font-family: Arial, Helvetica, sans-serif;
+        font-weight: bold;
+        fill: #000;
+        stroke: #fff;
+        paint-order: stroke;
+        stroke-linejoin: round;
+        pointer-events: none;
+        user-select: none;
+    }
+    .o_vt_hit {
+        fill: transparent;
+        cursor: grab;
+        touch-action: none;
+    }
+    .o_vt_tip_handle {
+        fill: rgba(220, 38, 38, 0.25);
+        stroke: #dc2626;
+        cursor: grab;
+        touch-action: none;
+    }
+    .o_vt_selected {
+        .o_vt_line {
+            stroke: #dc2626;
+        }
+        .o_vt_head {
+            fill: #dc2626;
+        }
+        .o_vt_label {
+            fill: #dc2626;
+        }
+        .o_vt_hit {
+            fill: rgba(220, 38, 38, 0.12);
+        }
+    }
+}

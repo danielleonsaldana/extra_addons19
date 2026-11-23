@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mx_soldic_visual_inspection.VtJointMarker">
+        <div class="o_action o_vt_marker d-flex flex-column h-100">
+            <!-- Barra superior -->
+            <div class="o_vt_topbar d-flex align-items-center gap-2 px-2 py-2 border-bottom">
+                <button class="btn btn-light" t-on-click="onBack" title="Regresar">
+                    <i class="fa fa-arrow-left"/>
+                </button>
+                <div class="flex-grow-1 text-truncate">
+                    <div class="fw-bold text-truncate" t-esc="state.title"/>
+                    <small class="text-muted">
+                        <t t-esc="totalJoints"/> juntas marcadas
+                    </small>
+                </div>
+                <button class="btn btn-primary o_vt_save" t-on-click="save" t-att-disabled="state.saving or state.loading">
+                    <i t-attf-class="fa #{state.saving ? 'fa-spinner fa-spin' : 'fa-check'} me-1"/>
+                    Guardar
+                </button>
+            </div>
+
+            <t t-if="state.loading">
+                <div class="flex-grow-1 d-flex align-items-center justify-content-center text-muted">Cargando planos…</div>
+            </t>
+            <t t-else="">
+                <!-- Vistas (si hay varios planos) -->
+                <div t-if="state.images.length > 1" class="o_vt_tabs d-flex gap-2 px-2 py-2 border-bottom">
+                    <t t-foreach="state.images" t-as="img" t-key="img.id">
+                        <button t-attf-class="btn btn-sm text-nowrap #{img_index === state.current ? 'btn-primary' : 'btn-outline-secondary'}"
+                                t-on-click="() => this.selectImage(img_index)">
+                            <t t-esc="img.name"/>
+                            <span class="badge rounded-pill text-bg-light ms-1" t-esc="img.markers.length"/>
+                        </button>
+                    </t>
+                </div>
+
+                <!-- Plano -->
+                <div class="o_vt_scroll flex-grow-1" t-ref="scroll">
+                    <div class="o_vt_inner" t-att-style="innerStyle">
+                        <img t-att-src="image.url" class="o_vt_img" t-on-load="onImageLoad" draggable="false" alt="Plano"
+                             t-key="image.id"/>
+                        <svg t-if="image.w" t-ref="svg" class="o_vt_svg"
+                             t-attf-viewBox="0 0 {{image.w}} {{image.h}}" preserveAspectRatio="none"
+                             t-on-click="onCanvasClick">
+                            <t t-foreach="viewMarkers" t-as="mk" t-key="mk.uid">
+                                <g t-attf-class="o_vt_mark #{mk.selected ? 'o_vt_selected' : ''}">
+                                    <line t-if="mk.g.showLine" t-att-x1="mk.g.line.x1" t-att-y1="mk.g.line.y1"
+                                          t-att-x2="mk.g.line.x2" t-att-y2="mk.g.line.y2"
+                                          class="o_vt_line" t-att-stroke-width="mk.g.stroke"/>
+                                    <polygon t-att-points="mk.g.arrowPoints" class="o_vt_head"/>
+                                    <text t-att-x="mk.g.lab.x" t-att-y="mk.g.lab.y" class="o_vt_label"
+                                          t-att-font-size="mk.g.fontSize" t-att-stroke-width="mk.g.stroke * 2.2"
+                                          text-anchor="middle" dominant-baseline="central" t-esc="mk.label"/>
+                                    <!-- zona táctil de la etiqueta (arrastrar / seleccionar) -->
+                                    <circle t-att-cx="mk.g.lab.x" t-att-cy="mk.g.lab.y" t-att-r="mk.g.r * 1.8"
+                                            class="o_vt_hit"
+                                            t-on-touchstart="onHandleTouchStart"
+                                            t-on-click.stop="() => {}"
+                                            t-on-pointerdown="(ev) => this.onHandlePointerDown(ev, mk.uid, 'label')"/>
+                                    <!-- punta movible cuando está seleccionada -->
+                                    <circle t-if="mk.selected" t-att-cx="mk.g.tip.x" t-att-cy="mk.g.tip.y"
+                                            t-att-r="mk.g.r * 1.1" class="o_vt_tip_handle"
+                                            t-att-stroke-width="mk.g.stroke"
+                                            t-on-touchstart="onHandleTouchStart"
+                                            t-on-click.stop="() => {}"
+                                            t-on-pointerdown="(ev) => this.onHandlePointerDown(ev, mk.uid, 'tip')"/>
+                                </g>
+                            </t>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Barra inferior -->
+                <div class="o_vt_bottombar border-top px-2 py-2">
+                    <div class="small text-muted text-center mb-2">
+                        <t t-if="state.selected">Arrastra la etiqueta o la punta (círculo) para acomodarla.</t>
+                        <t t-else="">Toca el plano donde está cada junta. Arrastra la etiqueta para moverla.</t>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-between">
+                        <div class="btn-group">
+                            <button class="btn btn-light" t-on-click="zoomOut" t-att-disabled="state.zoom &lt;= 1" title="Alejar">
+                                <i class="fa fa-search-minus"/>
+                            </button>
+                            <button class="btn btn-light" t-on-click="zoomIn" t-att-disabled="state.zoom &gt;= 5" title="Acercar">
+                                <i class="fa fa-search-plus"/>
+                            </button>
+                        </div>
+                        <button class="btn btn-light" t-on-click="undo" t-att-disabled="!history.length and !state.dirty">
+                            <i class="fa fa-undo me-1"/>Deshacer
+                        </button>
+                        <button t-if="state.selected" class="btn btn-danger" t-on-click="deleteSelected">
+                            <i class="fa fa-trash me-1"/>Eliminar
+                        </button>
+                        <button t-else="" class="btn btn-light" t-on-click="clearView" t-att-disabled="!image.markers.length">
+                            <i class="fa fa-eraser me-1"/>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

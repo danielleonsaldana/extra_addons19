@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_vt_generate_joints_form" model="ir.ui.view">
+        <field name="name">vt.generate.joints.form</field>
+        <field name="model">vt.generate.joints</field>
+        <field name="arch" type="xml">
+            <form string="Generar juntas">
+                <field name="task_id" invisible="1"/>
+                <group>
+                    <field name="quantity" class="fs-3"/>
+                    <field name="next_joint" readonly="1"/>
+                    <field name="description" placeholder="Opcional: se pone igual en todas"/>
+                    <field name="dimension"/>
+                    <field name="indication"/>
+                </group>
+                <footer>
+                    <button name="action_generate" type="object" string="Generar" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_vt_fill_joints_form" model="ir.ui.view">
+        <field name="name">vt.fill.joints.form</field>
+        <field name="model">vt.fill.joints</field>
+        <field name="arch" type="xml">
+            <form string="Llenar varias juntas">
+                <field name="task_id" invisible="1"/>
+                <group>
+                    <field name="line_ids" widget="many2many_tags" options="{'no_create': True}"
+                           placeholder="J1, J4, J7..."/>
+                </group>
+                <p class="text-muted">Solo se copian los datos que captures; lo vacío no se modifica.</p>
+                <group>
+                    <field name="description"/>
+                    <field name="dimension"/>
+                    <field name="indication"/>
+                    <field name="welder"/>
+                    <field name="result" widget="selection_badge"/>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object" string="Aplicar" class="btn-primary"/>
+                    <button special="cancel" string="Cancelar"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

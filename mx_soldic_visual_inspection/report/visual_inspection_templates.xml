@@ -283,11 +283,19 @@
                         <!-- ===== Hoja de croquis ===== -->
                         <t t-if="page['type'] == 'sketch'">
                             <tr class="vt-bar"><td colspan="9">CROQUIS DE UBICACIÓN</td></tr>
-                            <tr>
-                                <td colspan="9" class="vt-sketch-box">
-                                    <img t-att-src="image_data_uri(o.vt_sketch_image)" class="vt-sketch-img"/>
-                                </td>
-                            </tr>
+                            <t t-set="n_img" t-value="len(page['images'])"/>
+                            <t t-foreach="page['images']" t-as="sk">
+                                <tr t-if="sk['name'] and n_img &gt; 1">
+                                    <td colspan="9" class="vt-b vt-c vt-bold" style="height: 14px;" t-out="sk['name']"/>
+                                </tr>
+                                <tr>
+                                    <td colspan="9" class="vt-sketch-box"
+                                        t-attf-style="height: #{500 if n_img == 1 else 232}px;">
+                                        <img t-att-src="image_data_uri(sk['data'])" class="vt-sketch-img"
+                                             t-attf-style="max-height: #{490 if n_img == 1 else 222}px;"/>
+                                    </td>
+                                </tr>
+                            </t>
                         </t>
 
                         <t t-call="mx_soldic_visual_inspection.report_visual_inspection_footer"/>

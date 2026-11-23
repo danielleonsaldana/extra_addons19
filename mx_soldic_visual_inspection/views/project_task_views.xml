@@ -88,11 +88,72 @@
                         </group>
                     </group>
 
-                    <separator string="Resultados"/>
+                    <separator string="Planos y juntas"/>
+                    <p class="text-muted mb-2">
+                        1) Agrega el plano (foto o imagen) · 2) Marca las juntas tocando el plano ·
+                        3) Captura los datos de cada junta.
+                    </p>
+                    <field name="vt_image_ids" nolabel="1" mode="kanban,list" class="o_vt_images">
+                        <kanban>
+                            <field name="id"/>
+                            <field name="name"/>
+                            <field name="marker_count"/>
+                            <field name="annotated_image"/>
+                            <templates>
+                                <t t-name="card" class="flex-row align-items-center gap-2">
+                                    <t t-if="record.annotated_image.raw_value">
+                                        <field name="annotated_image" widget="image" options="{'size': [96, 64]}"/>
+                                    </t>
+                                    <t t-else="">
+                                        <field name="image" widget="image" options="{'size': [96, 64]}"/>
+                                    </t>
+                                    <div class="flex-grow-1">
+                                        <field name="name" class="fw-bold"/>
+                                        <div class="text-muted small"><field name="marker_count"/> juntas marcadas</div>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <list>
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="marker_count"/>
+                        </list>
+                        <form string="Plano">
+                            <group>
+                                <field name="name" placeholder="Vista superior, Vista lateral..."/>
+                                <field name="sequence" invisible="1"/>
+                            </group>
+                            <field name="image" widget="image" options="{'size': [0, 320]}"/>
+                            <div invisible="not annotated_image" class="mt-3">
+                                <label for="annotated_image" string="Plano con juntas"/>
+                                <field name="annotated_image" widget="image" options="{'size': [0, 320]}" readonly="1"/>
+                            </div>
+                        </form>
+                    </field>
+
+                    <div class="d-flex flex-wrap gap-2 my-3">
+                        <button name="action_vt_open_marker" type="object" icon="fa-crosshairs"
+                                string="Marcar juntas en plano" class="btn-primary btn-lg"
+                                invisible="not vt_image_ids"/>
+                        <button name="action_vt_generate_joints" type="object" icon="fa-list-ol"
+                                string="Generar juntas" class="btn-secondary btn-lg"/>
+                        <button name="action_vt_fill_joints" type="object" icon="fa-clone"
+                                string="Llenar varias juntas" class="btn-secondary btn-lg"
+                                invisible="not vt_line_ids"/>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+                        <span class="badge text-bg-primary fs-6">Juntas: <field name="vt_joint_count" class="d-inline"/></span>
+                        <span class="badge text-bg-danger fs-6" invisible="not vt_rejected_count">
+                            Rechazadas: <field name="vt_rejected_count" class="d-inline"/>
+                        </span>
+                        <span class="badge text-bg-secondary fs-6">Longitud total: <field name="vt_total_length" class="d-inline"/> mm</span>
+                    </div>
                     <group>
                         <field name="vt_results_title" placeholder="COLUMNA ECM-T-1 PIEZA 5 (vacío = identificación)"/>
                     </group>
-                    <field name="vt_line_ids" nolabel="1">
+                    <field name="vt_line_ids" nolabel="1" mode="list,kanban">
                         <list editable="bottom" decoration-danger="result == 'rejected'">
                             <field name="sequence" widget="handle"/>
                             <field name="joint"/>
@@ -103,10 +164,42 @@
                             <field name="result" widget="badge"
                                    decoration-success="result == 'accepted'"
                                    decoration-danger="result == 'rejected'"/>
+                            <field name="image_id" optional="hide"/>
                         </list>
+                        <kanban>
+                            <field name="joint"/>
+                            <field name="result"/>
+                            <templates>
+                                <t t-name="card">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <field name="joint" class="fw-bold fs-4"/>
+                                        <field name="result" widget="badge"
+                                               decoration-success="result == 'accepted'"
+                                               decoration-danger="result == 'rejected'"/>
+                                    </div>
+                                    <field name="description" class="text-truncate"/>
+                                    <div class="text-muted small">
+                                        Dim: <field name="dimension"/> mm · Ind: <field name="indication"/>
+                                    </div>
+                                </t>
+                            </templates>
+                        </kanban>
+                        <form string="Junta">
+                            <div class="oe_title">
+                                <h1><field name="joint" placeholder="J1"/></h1>
+                            </div>
+                            <group>
+                                <field name="result" widget="selection_badge" class="o_vt_result"/>
+                                <field name="description"/>
+                                <field name="dimension"/>
+                                <field name="indication"/>
+                                <field name="welder"/>
+                                <field name="image_id" readonly="1" invisible="not image_id"/>
+                            </group>
+                        </form>
                     </field>
 
-                    <group string="Croquis de ubicación" name="vt_sketch">
+                    <group string="Croquis adicional (opcional)" name="vt_sketch">
                         <field name="vt_sketch_image" widget="image" nolabel="1" colspan="2"
                                options="{'size': [0, 320]}"/>
                     </group>
